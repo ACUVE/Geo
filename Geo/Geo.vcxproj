@@ -71,15 +71,21 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>C:\Users\t2ladmin\Desktop\glfw-3.2.bin.WIN64\include;C:\Users\k2vision\Desktop\glew-1.13.0\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>C:\Users\t2ladmin\Desktop\glm-0.9.7.6\glm;C:\Users\t2ladmin\Desktop\glfw-3.2.bin.WIN64\include;C:\Users\k2vision\Desktop\glew-1.13.0\include;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Users\k2vision\Desktop\glfw-3.2.bin.WIN64\lib-vc2015;C:\Users\k2vision\Desktop\glew-1.13.0\lib\Release\x64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
+    <IncludePath>C:\Users\t2ladmin\Desktop\glfw-3.2.bin.WIN64\include;C:\Users\k2vision\Desktop\glew-1.13.0\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
+    <IncludePath>C:\Users\t2ladmin\Desktop\glm-0.9.7.6\glm;C:\Users\t2ladmin\Desktop\glfw-3.2.bin.WIN64\include;C:\Users\k2vision\Desktop\glew-1.13.0\include;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Users\k2vision\Desktop\glfw-3.2.bin.WIN64\lib-vc2015;C:\Users\k2vision\Desktop\glew-1.13.0\lib\Release\x64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -142,6 +148,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="make_point.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="make_point.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
