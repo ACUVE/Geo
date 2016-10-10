@@ -146,59 +146,16 @@ constexpr float regular_icosahedron_r = const_sqrt( 1.0f * 1.0f + GR * GR );
 
 void make_geodesic_dome_point( unsigned int const level, std::vector< float > &point, std::vector< unsigned int > &index )
 {
-	// level‚ª1ã‚ª‚é–ˆ‚É–Ê”‚Í4”{‚É‚È‚é
-	unsigned int const mensuu = (20 << (2 * level));
-	// •Ó” = –Ê” * 3 / 2
-	unsigned int const hensuu = mensuu * 3 / 2;
-	// “_” = –Ê” / 2 + 2
-	unsigned int const tensuu = mensuu / 2 + 2;
-	point.reserve( tensuu * 3 );
 	point.assign( std::cbegin( regular_icosahedron_point ), std::cend( regular_icosahedron_point ) );
-	index.reserve( mensuu * 3 );
 	index.assign( std::cbegin( regular_icosahedron_point_idxs ), std::cend( regular_icosahedron_point_idxs ) );
+	for( auto i = 0u; i + 2 < std::size( point ); i += 3 )
+	{
+		auto const r = hypot( point[ i + 0 ], point[ i + 1 ], point[ i + 2 ] );
+		point[ i + 0 ] /= r, point[ i + 1 ] /= r, point[ i + 2 ] /= r;
+	}
 	if( level > 0 )
 	{
-		std::decay_t< decltype( index ) > index_tmp;
-		index_tmp.reserve( index.size() );
-		for( auto cl = 0u; cl < level; ++cl )
-		{
-			auto &o_i = cl % 2 == 0 ? index_tmp : index;
-			auto &i_i = cl % 2 == 0 ? index : index_tmp;
-			std::unordered_map< std::tuple< unsigned int, unsigned int >, unsigned int > m;
-			auto getpos = [ & ]( unsigned int a, unsigned int b )
-			{
-				auto const ind = std::minmax( a, b );
-				auto const ret_it = m.find( ind );
-				if( ret_it != m.end() ) return ret_it->second;
-				unsigned int const pind = static_cast< unsigned int >( point.size() / 3 );
-				auto const *p1 = &point[ a * 3 ], *p2 = &point[ b * 3 ];
-				auto const x = p1[ 0 ] + p2[ 0 ], y = p1[ 1 ] + p2[ 1 ], z = p1[ 2 ] + p2[ 2 ];
-				auto const r = std::sqrt( x * x + y * y + z * z ) / regular_icosahedron_r;
-				auto const addpoint = { x / r, y / r, z / r };
-				std::copy( std::cbegin( addpoint ), std::cend( addpoint ), std::back_inserter( point ) );
-				m[ ind ] = pind;
-				return pind;
-			};
-			o_i.resize( 0 );
-			for( auto i = 0u; i + 2 < i_i.size(); i += 3 )
-			{
-				auto const * const p = &i_i[ i ];
-				auto const i01 = getpos( p[ 0 ], p[ 1 ] );
-				auto const i12 = getpos( p[ 1 ], p[ 2 ] );
-				auto const i20 = getpos( p[ 2 ], p[ 0 ] );
-				auto const addindex = {
-					p[ 0 ], i01, i20,
-					i01, p[ 1 ], i12,
-					i20, i12, p[ 2 ],
-					i12, i20, i01,
-				};
-				std::copy( std::cbegin( addindex ), std::cend( addindex ), std::back_inserter( o_i ) );
-			}
-		}
-		if( level % 2 != 0 )
-		{
-			index = std::move( index_tmp );
-		}
+		partition_polygon_on_ball( level, point, index );
 	}
 }
 std::tuple< std::vector< float >, std::vector< unsigned int > > make_geodesic_dome_point( unsigned int const level )
@@ -322,7 +279,6 @@ void make_regular_pentakis_dodecahedron_point( unsigned int const level, std::ve
 {
 	point.assign( std::cbegin( regular_pentakis_dodecahedron_point ), std::cend( regular_pentakis_dodecahedron_point ) );
 	index.assign( std::cbegin( regular_pentakis_dodecahedron_point_idxs ), std::cend( regular_pentakis_dodecahedron_point_idxs ) );
-
 	for( auto i = 0u; i + 2 < std::size( point ); i += 3 )
 	{
 		auto const r = hypot( point[ i + 0 ], point[ i + 1 ], point[ i + 2 ] );
