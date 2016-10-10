@@ -266,11 +266,17 @@ int main( int argc, char **argv )
 
 	std::vector< float > point;
 	std::vector< unsigned int > index;
-	// std::tie( point, index ) = make_geodesic_dome_point( 2 );
-	std::tie( point, index ) = make_regular_pentakis_dodecahedron_point( 4 );
-	auto texture_data = make_texture( TEXTURE_WIDTH_HEIGHT, TEXTURE_WIDTH_HEIGHT, std::vector< unsigned int >( std::size( point ) / 3, 1 ), point, 0.02f, 0.05f );
+	std::tie( point, index ) = make_geodesic_dome_point( 1 );
+	// std::tie( point, index ) = make_regular_pentakis_dodecahedron_point( 0 );
+	std::cout << "面の数：" << index.size() / 3 << std::endl;
+	std::cout << "点の数：" << point.size() / 3 << std::endl;
+	std::cout << "辺の数：" << index.size() / 2 << std::endl;
+	std::vector< unsigned int > num = make_claster( static_cast< unsigned int >( point.size() / 3 ), 4, index );
+	// std::vector< unsigned int > num( point.size() / 3, 2 );
+	auto texture_data = make_texture( TEXTURE_WIDTH_HEIGHT, TEXTURE_WIDTH_HEIGHT, num, point, 0.02f, 0.05f );
 	writeBMP( "test.bmp", TEXTURE_WIDTH_HEIGHT, TEXTURE_WIDTH_HEIGHT, texture_data.data() );
 	// std::tie( point, index ) = make_geodesic_dome_point( 4 );
+
 
 	std::vector< float > poler_point;
 	std::vector< unsigned int > poler_index;

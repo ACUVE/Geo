@@ -1,5 +1,7 @@
 #include <array>
+#include <atomic>
 #include <unordered_map>
+#include <unordered_set>
 #include <tuple>
 #include <iterator>
 #include <algorithm>
@@ -7,10 +9,20 @@
 #include <cmath>
 #include <numeric>
 #include <limits>
+#include <climits>
 #include <memory>
 #include <iostream>
 #include <thread>
+#include <random>
 #include "make_point.hpp"
+
+template< typename INT >
+static
+constexpr INT rol3( INT val ){
+	static_assert( std::is_unsigned<INT>::value, "Rotate Left only makes sense for unsigned types" );
+	return (val << 3) | (val >> (sizeof( INT ) * CHAR_BIT - 3));
+}
+
 
 namespace std
 {
@@ -19,11 +31,26 @@ namespace std
 	{
 		typedef std::tuple< unsigned int, unsigned int > argument_type;
 		typedef std::size_t result_type;
-		result_type operator()(argument_type const& s) const
+		result_type operator()(argument_type const &s) const
 		{
 			result_type const h1 = std::hash< unsigned int >{}( std::get< 0 >( s ) );
-			result_type const h2 = std::hash< unsigned int >{}( std::get< 0 >( s ) );
+			result_type const h2 = std::hash< unsigned int >{}( std::get< 1 >( s ) );
 			return h1 ^ (h2 << 1); // or use boost::hash_combine
+		}
+	};
+	template<>
+	struct hash< std::vector< unsigned int > >
+	{
+		typedef std::vector< unsigned int > argument_type;
+		typedef std::size_t result_type;
+		result_type operator()( argument_type const &v) const
+		{
+			result_type h = 0u;
+			for( auto &&i : v )
+			{
+				h = rol3( h ) | i;
+			}
+			return h;
 		}
 	};
 }
@@ -43,6 +70,24 @@ static
 T hypot( T const x, T const y, T const z )
 {
 	return std::sqrt( x * x + y * y + z * z );
+}
+static
+auto thread_num()
+{
+#if _DEBUG
+	return 1u;
+#else
+	static std::atomic< unsigned int > num = 0;
+	unsigned int ret = num.load();
+	if( ret == 0 )
+	{
+		ret = std::thread::hardware_concurrency();
+		if( ret == 0 ) ret = 1u;
+		unsigned int exp = 0u;
+		num.compare_exchange_strong( exp, ret );
+	}
+	return ret;
+#endif
 }
 
 // 参考文献: http://atali.jp/blog/2014/08/geodesicdome/
@@ -482,6 +527,155 @@ std::tuple< std::vector< float >, std::vector< unsigned int > > euclidean_to_the
 	return std::make_tuple( std::move( f ), std::move( u ) );
 }
 
+// メモリを食う糞ソース
+static
+std::vector< unsigned int >  make_claster_impl( unsigned int const point_num, unsigned int const max_num, unsigned int const sep_num, std::vector< unsigned int > const &index, std::vector< std::vector< unsigned int > > const &map, std::atomic< bool > &flag )
+{
+	std::random_device rd;
+	std::mt19937_64 gen( rd() );
+	std::uniform_int_distribution< unsigned int > dist( 1, max_num );
+
+	std::vector< unsigned int > ret_num( point_num );
+	std::vector< unsigned int > tmp( sep_num );
+	std::unordered_set< std::vector< unsigned int > > set;
+	while( !flag )
+	{
+		bool gen_ok = true;
+		for( auto i = 0u; i < point_num; ++i )
+		{
+			auto const first_num = dist( gen );
+			auto const &mi = map[ i ];
+			auto j = 0u;
+			for( ; j < max_num; ++j )
+			{
+				auto const v = ret_num[ i ] = ((first_num + j - 1) % max_num) + 1;
+				bool same = false;
+				for( auto k = 0u; k < mi.size(); ++k )
+				{
+					if( mi[ k ] >= i ) break;
+					if( same = ret_num[ mi[ k ] ] == v ) break;
+				}
+				if( !same ) break;
+			}
+			if( !(gen_ok = j != max_num) ) break;
+		}
+		if( !gen_ok ) continue;
+		set.clear();
+		for( auto i = 0u; i + sep_num - 1 < index.size(); i += sep_num )
+		{
+			for( auto j = 0u; j < sep_num; ++j) tmp[ j ] = ret_num[ index[ i + j ] ];
+			auto it = set.find( tmp );
+			if( it != set.end() )
+			{
+				break;
+			}
+			set.insert( tmp );
+		}
+		if( set.size() != index.size() / sep_num ) continue;
+		bool exp = false;
+		if( !flag.compare_exchange_strong( exp, true ) ) break;
+		return std::move( ret_num );
+	}
+	return {};
+}
+void make_claster( unsigned int const point_num, unsigned int const max_num, std::vector< unsigned int > const &index, std::vector< unsigned int > &num )
+{
+	std::vector< std::vector< unsigned int > > map( point_num );
+	auto addmap = [ & ]( unsigned int const a, unsigned int const b )
+	{
+		auto &ma = map[ a ];
+		auto lb = std::lower_bound( ma.begin(), ma.end(), b );
+		if( lb != ma.end() && *lb == b ) return;
+		ma.insert( lb, b );
+	};
+	auto addmapbi = [ & ]( unsigned int const a, unsigned int const b )
+	{
+		addmap( a, b ); addmap( b, a );
+	};
+	for( auto i = 0u; i + 2 < index.size(); i += 3 )
+	{
+		addmapbi( index[ i + 0 ], index[ i + 1 ] );
+		addmapbi( index[ i + 1 ], index[ i + 2 ] );
+		addmapbi( index[ i + 2 ], index[ i + 0 ] );
+	}
+
+	std::unordered_map< std::tuple< unsigned int, unsigned int >, unsigned int > vmap;
+	for( auto i = 0u; i + 2 < index.size(); i += 3 )
+	{
+		auto const ii0 = index[ i + 0 ], ii1 = index[ i + 1 ], ii2 = index[ i + 2 ];
+		vmap[ std::make_tuple( ii0, ii1 ) ] = ii2;
+		vmap[ std::make_tuple( ii1, ii2 ) ] = ii0;
+		vmap[ std::make_tuple( ii2, ii0 ) ] = ii1;
+	}
+	unsigned int argsepnum;
+	std::vector< unsigned int > argindex;
+
+	// さんかっけー
+	/*
+	{
+		argsepnum = 3;
+		for( auto i = 0u; i + 2 < index.size(); i += 3 )
+		{
+			argindex.insert( argindex.end(), { index[ i + 0 ], index[ i + 1 ], index[ i + 2 ] } );
+			argindex.insert( argindex.end(), { index[ i + 1 ], index[ i + 2 ], index[ i + 0 ] } );
+			argindex.insert( argindex.end(), { index[ i + 2 ], index[ i + 0 ], index[ i + 1 ] } );
+		}
+	}
+	// */
+
+	// ほしいやつ
+	/*
+	{
+		argsepnum = 4;
+		for( auto const &v : vmap )
+		{
+			auto const a = std::get< 0 >( v.first ), b = std::get< 1 >( v.first );
+			if( a >= b ) continue;
+			auto const iri = vmap[ std::make_tuple( a, b ) ], jri = vmap[ std::make_tuple( b, a ) ];
+			argindex.insert( argindex.end(), { a, b, iri, jri } );
+			argindex.insert( argindex.end(), { b, a, jri, iri } );
+		}
+	}
+	// */
+
+	// ほしいやつその２
+	// /*
+	{
+		argsepnum = 6;
+		for( auto i = 0u; i + 2 < index.size(); i += 3 )
+		{
+			auto const a = index[ i + 0 ], b = index[ i + 1 ], c = index[ i + 2 ];
+			auto const u = vmap[ std::make_tuple( b, a ) ], v = vmap[ std::make_tuple( c, b ) ], w = vmap[ std::make_tuple( a, c ) ];
+			argindex.insert( argindex.end(), { a, b, c, u, v, w } );
+			argindex.insert( argindex.end(), { b, c, a, v, w, u } );
+			argindex.insert( argindex.end(), { c, a, b, w, u, v } );
+		}
+	}
+	// */
+
+	// TODO: 途中
+	std::atomic< bool > flag = false;
+	std::vector< std::thread > th;
+	auto const tn = thread_num();
+	for( auto i = 0u; i < tn; ++i )
+	{
+		th.emplace_back(
+			[ & ]()
+			{
+				auto v = make_claster_impl( point_num, max_num, argsepnum, argindex, map, flag );
+				if( !std::empty(v) ) num = std::move( v );
+			}
+		);
+	}
+	for( auto &&t : th ) t.join();
+}
+std::vector< unsigned int > make_claster( unsigned int const point_num, unsigned int const max_num, std::vector< unsigned int > const &index )
+{
+	std::vector< unsigned int > u;
+	make_claster( point_num, max_num, index, u );
+	return std::move( u );
+}
+
 std::vector< std::uint8_t > make_texture( unsigned int const width, unsigned int const height, std::vector< unsigned int > const &num, std::vector< float > const &point, float const dot_size, float const claster_size_in_rad, bool const multi_thread )
 {
 	if( std::size( num ) != std::size( point ) / 3 )
@@ -561,13 +755,12 @@ std::vector< std::uint8_t > make_texture( unsigned int const width, unsigned int
 			}
 		}
 	};
-	auto const hwc = std::thread::hardware_concurrency();
-	auto const cpunum = multi_thread ? (hwc <= 0 ? 1u : hwc) : 1u;
+	auto const tn = thread_num();
 	std::vector< std::thread > ths;
-	ths.reserve( cpunum - 1 );
-	auto const q = width / cpunum, r = width % cpunum;
+	ths.reserve( tn - 1 );
+	auto const q = width / tn, r = width % tn;
 	auto s = 0u, e = q + (0 < r);
-	for( auto i = 0u; i < cpunum - 1; ++i, s = e, e += q + (i < r) )
+	for( auto i = 0u; i < tn - 1; ++i, s = e, e += q + (i < r) )
 	{
 		ths.emplace_back( dosome, s, e );
 	}
