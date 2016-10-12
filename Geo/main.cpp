@@ -1,5 +1,6 @@
 #define NOMINMAX
 #include <algorithm>
+#include <numeric>
 #include <iostream>
 #include <iterator>
 #include <vector>
@@ -8,6 +9,7 @@
 #include <random>
 #include <unordered_map>
 #include <iterator>
+#include <sstream>
 #include <windows.h>
 #include <gl/glew.h>
 #include <gl/wglew.h>
@@ -18,6 +20,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "make_point.hpp"
+#include "load_ply.hpp"
 
 #pragma comment( lib, "glew32.lib" )
 #pragma comment( lib, "glfw3.lib" )
@@ -26,12 +29,18 @@
 
 constexpr unsigned int VIEW_WINDOW_WIDTH = 500u, VIEW_WINDOW_HEIGHT = VIEW_WINDOW_WIDTH;
 constexpr unsigned int TEX_WINDOW_WIDTH = 500u * 2, TEX_WINDOW_HEIGHT = TEX_WINDOW_WIDTH / 2;
+#if _DEBUG
+constexpr unsigned int TEXTURE_WIDTH_HEIGHT = 64u;
+#else
 constexpr unsigned int TEXTURE_WIDTH_HEIGHT = 2048u;
+#endif
+constexpr bool IS_BALL = false;
 
 constexpr char vertex_shader_src[] =
 R"(#version 330 core
 
-layout(location = 0) in vec3 position;
+// position.x : theta, position.y : phi
+layout(location = 0) in vec2 position;
 layout(location = 1) in vec3 incolor;
 uniform mat4 Hmat;
 out vec3 vcolor;
@@ -39,10 +48,11 @@ out vec2 poler;
 
 void main( void )
 {
-	gl_Position = Hmat * vec4( position, 1 );
+	float st = sin( position.x ), ct = cos( position.x );
+	float sp = sin( position.y ), cp = cos( position.y );
+	gl_Position = Hmat * vec4( ct * cp, st * cp, sp, 1 );
 	vcolor = incolor;
-	// poler = vec2( atan( position.y, position.x ), atan( position.z, length( position.xy ) ) );
-	poler = vec2( atan( position.y, position.x ), atan( position.z, length( position.xy ) ) );
+	poler = position.xy;
 }
 )";
 constexpr char fragment_shader_src[] =
@@ -57,9 +67,7 @@ const float PI = 3.141592653589793238462643383;
 
 void main( void )
 {
-	// color = vec4( vcolor, 1.0 );
 	color = texture( image, vec2( poler.x / PI / 2 + 0.5, poler.y / PI + 0.5 ) );
-	// color = texture( image, vec2( gl_FragCoord.x / 500, gl_FragCoord.y / 250 ) );
 }
 )";
 constexpr char fragment_shader_src2[] =
@@ -71,7 +79,43 @@ out vec4 color;
 
 void main( void )
 {
-	// color = vec4( 1.0, 1.0, 1.0, 1.0 );
+	color = vec4( 0.0, 1.0, 0.0, 1.0 );
+}
+)";
+constexpr char vertex_shader_no_ball_src[] =
+R"(#version 330 core
+
+layout(location = 0) in vec3 position;
+layout(location = 1) in vec3 incolor;
+uniform mat4 Hmat;
+out vec3 vcolor;
+
+void main( void )
+{
+	gl_Position = Hmat * vec4( position.xyz, 1.0 );
+	vcolor = incolor;
+}
+)";
+constexpr char fragment_shader_no_ball_src[] =
+R"(#version 330 core
+
+in vec3 vcolor;
+out vec4 color;
+uniform sampler2D image;
+
+void main( void )
+{
+	color = vec4( 1.0, 1.0, 1.0, 1.0 );
+}
+)";
+constexpr char fragment_shader_no_ball_src2[] =
+R"(#version 330 core
+
+in vec3 vcolor;
+out vec4 color;
+
+void main( void )
+{
 	color = vec4( 0.0, 1.0, 0.0, 1.0 );
 }
 )";
@@ -137,18 +181,17 @@ void main( void )
 }
 )";
 
-static void writeBMP(char const *const filename, std::uint32_t const width, std::uint32_t const height, void *ptr){
+static void writeBMP(char const *const filename, std::uint32_t const width, std::uint32_t const height, void const *ptr){
 	HANDLE hFile = CreateFileA(filename, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if(hFile == INVALID_HANDLE_VALUE) return;
 	std::uint32_t const pixel_num = width * height;
-	std::uint32_t const filesize = 14 + 40 + pixel_num * 3;
 #define UINT16TO2BYTE(NUM) (std::uint16_t)(NUM) & 0xFF, ((std::uint16_t)(NUM) >> 8) & 0xFF
 #define UINT32TO4BYTE(NUM) (std::uint32_t)(NUM) & 0xFF, ((std::uint32_t)(NUM) >> 8) & 0xFF, ((std::uint32_t)(NUM) >> 16) & 0xFF, ((std::uint32_t)(NUM) >> 24) & 0xFF
 	DWORD written;
 	std::uint8_t const header[14] =
 	{
 		'B', 'M',
-		UINT32TO4BYTE(filesize),
+		UINT32TO4BYTE(0),	// ファイルサイズ入れるべき
 		UINT16TO2BYTE(0),
 		UINT16TO2BYTE(0),
 		UINT32TO4BYTE(14 + 40)
@@ -158,7 +201,7 @@ static void writeBMP(char const *const filename, std::uint32_t const width, std:
 	{
 		UINT32TO4BYTE(40),
 		UINT32TO4BYTE(width),
-		UINT32TO4BYTE(~height + 1),
+		UINT32TO4BYTE(height),
 		UINT16TO2BYTE(1),
 		UINT16TO2BYTE(24),
 		0, 0, 0, 0,
@@ -169,14 +212,24 @@ static void writeBMP(char const *const filename, std::uint32_t const width, std:
 		0, 0, 0, 0,
 	};
 	WriteFile(hFile, infoheader, sizeof(infoheader), &written, nullptr);
-	assert((width * 3) % 8 == 0);
-	WriteFile(hFile, ptr, pixel_num * 3, &written, nullptr);
+	std::uint8_t const padsize = (4 - (width * 3) % 4) % 4;
+	constexpr std::uint8_t zeros[ 3 ]{};
+	if( padsize == 0 )
+	{
+		WriteFile(hFile, ptr, pixel_num * 3, &written, nullptr);
+	}
+	else
+	{
+		for( std::uint32_t i = 0u; i < height; ++i )
+		{
+			WriteFile( hFile, (std::uint8_t *)ptr + width * i, width * 3, &written, nullptr);
+			WriteFile( hFile, zeros, padsize, &written, nullptr);
+		}
+	}
 	CloseHandle(hFile);
 #undef UINT16TO2BYTE
 #undef UINT32TO4BYTE
 }
-
-
 
 template< typename T >
 static
@@ -185,7 +238,8 @@ GLuint make_gl_buffer( GLenum const type, GLenum const usage, std::vector< T > c
 	GLuint id;
 	glGenBuffers( 1, &id );
 	glBindBuffer( type, id );
-	glBufferData( type, sizeof( vec[ 0 ] ) * std::size( vec ), &vec[ 0 ], usage );
+	auto const size = std::size( vec );
+	glBufferData( type, sizeof( vec[ 0 ] ) * size, size ? &vec[ 0 ] : nullptr, usage );
 	return id;
 }
 static
@@ -260,28 +314,47 @@ GLuint compile_shader( char const *vertex_shader_src, char const *fragment_shade
 
 int main( int argc, char **argv )
 {
-	glm::mat4 proj = glm::perspective( glm::radians( 30.0f ), static_cast< float >( VIEW_WINDOW_WIDTH ) / VIEW_WINDOW_HEIGHT, 0.1f, 100.0f );
-	glm::mat4 view = glm::lookAt( glm::vec3( 3, 3, 3 ), glm::vec3( 0, 0, 0 ), glm::vec3( 0.0, 0.0, 1.0) );
+	// glm::mat4 proj = glm::perspective( glm::radians( 30.0f ), static_cast< float >( VIEW_WINDOW_WIDTH ) / VIEW_WINDOW_HEIGHT, 0.1f, 100.0f );
+	// glm::mat4 view = glm::lookAt( glm::vec3( 3, 3, 3 ), glm::vec3( 0, 0, 0 ), glm::vec3( 0.0, 0.0, 1.0) );
+	glm::mat4 proj = glm::perspective( glm::radians( 30.0f ), static_cast< float >( VIEW_WINDOW_WIDTH ) / VIEW_WINDOW_HEIGHT, 0.1f, 10000.0f );
+	glm::mat4 view = glm::lookAt( glm::vec3( 1000, 1000, 1000 ), glm::vec3( 0, 0, 0 ), glm::vec3( 0.0, 0.0, 1.0) );
 	glm::mat4 model = glm::mat4( 1.0f );
 
 	std::vector< float > point;
 	std::vector< unsigned int > index;
-	std::tie( point, index ) = make_geodesic_dome_point( 1 );
-	// std::tie( point, index ) = make_regular_pentakis_dodecahedron_point( 0 );
+	std::tie( point, index ) = load_ply( "C:\\Users\\t2ladmin\\Downloads\\acvd1.1\\output_1.ply" );
+	// std::tie( point, index ) = make_geodesic_dome_point( 3 );
+	// std::tie( point, index ) = make_regular_pentakis_dodecahedron_point( 1 );
 	std::cout << "面の数：" << index.size() / 3 << std::endl;
 	std::cout << "点の数：" << point.size() / 3 << std::endl;
 	std::cout << "辺の数：" << index.size() / 2 << std::endl;
-	std::vector< unsigned int > num = make_claster( static_cast< unsigned int >( point.size() / 3 ), 4, index );
-	// std::vector< unsigned int > num( point.size() / 3, 2 );
+	// std::vector< unsigned int > num = make_claster( static_cast< unsigned int >( point.size() / 3 ), 6, index );
+	std::vector< unsigned int > num( point.size() / 3, 2 );
 	auto texture_data = make_texture( TEXTURE_WIDTH_HEIGHT, TEXTURE_WIDTH_HEIGHT, num, point, 0.02f, 0.05f );
 	writeBMP( "test.bmp", TEXTURE_WIDTH_HEIGHT, TEXTURE_WIDTH_HEIGHT, texture_data.data() );
-	// std::tie( point, index ) = make_geodesic_dome_point( 4 );
+	// std::tie( point, index ) = make_geodesic_dome_point( 8 );
+
+	if( !IS_BALL )
+	{
+		float sum[ 3 ] = {};
+		for( auto i = 0u; i + 2 < point.size(); i += 3 )
+			for( auto j = 0u; j < 3u; ++j )
+				sum[ j ] += point[ i + j ];
+		for( auto j = 0u; j < 3; ++j ) sum[ j ] /= point.size() / 3;
+		for( auto i = 0u; i + 2 < point.size(); i += 3 )
+			for( auto j = 0u; j < 3u; ++j )
+				point[ i + j ] -= sum[ j ];
+	}
 
 
 	std::vector< float > poler_point;
 	std::vector< unsigned int > poler_index;
 	std::vector< unsigned int > poler_point_to_point;
-	std::tie( poler_point, poler_index ) = euclidean_to_theta_phi_of_poler_for_draw( point, index, &poler_point_to_point );
+	if( IS_BALL )
+	{
+		std::tie( poler_point, poler_index ) = euclidean_to_theta_phi_of_poler_for_draw( point, index, &poler_point_to_point );
+	}
+
 
 	std::vector< float > color( std::size( point ) / 3 * 3 );
 	std::random_device rnd_dev;
@@ -308,13 +381,13 @@ int main( int argc, char **argv )
 
 	glViewport( 0, 0, VIEW_WINDOW_WIDTH, VIEW_WINDOW_HEIGHT );
 
-	auto program = compile_shader( vertex_shader_src, fragment_shader_src );
-	auto program2 = compile_shader( vertex_shader_src, fragment_shader_src2 );
+	auto program = compile_shader( IS_BALL ? vertex_shader_src : vertex_shader_no_ball_src, IS_BALL ? fragment_shader_src : fragment_shader_no_ball_src );
+	auto program2 = compile_shader( IS_BALL ? vertex_shader_src : vertex_shader_no_ball_src, IS_BALL ? fragment_shader_src2 : fragment_shader_no_ball_src2 );
 
 	glEnable( GL_DEPTH_TEST );
 
-	auto point_buffer = make_gl_buffer( GL_ARRAY_BUFFER, GL_STATIC_DRAW, point );
-	auto index_buffer = make_gl_buffer( GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW, index );
+	auto point_buffer = make_gl_buffer( GL_ARRAY_BUFFER, GL_STATIC_DRAW, IS_BALL ? poler_point : point );
+	auto index_buffer = make_gl_buffer( GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW, IS_BALL ? poler_index : index );
 	auto color_buffer = make_gl_buffer( GL_ARRAY_BUFFER, GL_STATIC_DRAW, color );
 	glPixelStorei( GL_UNPACK_ALIGNMENT, 1 );
 	auto dot_texture = make_gl_texture_2d( GL_RGB, TEXTURE_WIDTH_HEIGHT, TEXTURE_WIDTH_HEIGHT, GL_RGB, GL_UNSIGNED_BYTE, &texture_data[0] );
@@ -362,7 +435,7 @@ int main( int argc, char **argv )
 		glBindTexture( GL_TEXTURE_2D, dot_texture );
 		glEnableVertexAttribArray( 0 );
 		glBindBuffer( GL_ARRAY_BUFFER, point_buffer );
-		glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, reinterpret_cast< void * >( 0 ) );
+		glVertexAttribPointer( 0, IS_BALL ? 2 : 3, GL_FLOAT, GL_FALSE, 0, reinterpret_cast< void * >( 0 ) );
 		glEnableVertexAttribArray( 1 );
 		glBindBuffer( GL_ARRAY_BUFFER, color_buffer );
 		glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 0, reinterpret_cast< void * >( 0 ) );
@@ -370,23 +443,30 @@ int main( int argc, char **argv )
 		glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, index_buffer );
 		glUseProgram( program );
 		glDrawElements( GL_TRIANGLES, static_cast< GLsizei >( index.size() ), GL_UNSIGNED_INT, reinterpret_cast< void * >( 0 ) );
-		/*
+		// /*
 		glUseProgram( program2 );
 		for( auto i = 0u; i + 2 < index.size(); i += 3 )
 		{
 			glDrawElements( GL_LINE_LOOP, 3, GL_UNSIGNED_INT, reinterpret_cast< void * >( i * sizeof( index[ 0 ] ) ) );
 		}
-		*/
+		// */
 		glDisableClientState( GL_VERTEX_ARRAY );
 		glDisableVertexAttribArray(0);
 		glDisableVertexAttribArray(1);
 		glFlush();
 		glfwSwapBuffers( window );
 
+		if( i < 360 + 4 )
+		{
+			auto ptr = std::make_unique< std::uint8_t[] >( VIEW_WINDOW_WIDTH * VIEW_WINDOW_HEIGHT * 3 );
+			glReadPixels( 0, 0, VIEW_WINDOW_WIDTH, VIEW_WINDOW_HEIGHT, GL_RGB, GL_UNSIGNED_BYTE, ptr.get() );
+			std::ostringstream oss;
+			oss << i << ".bmp";
+			writeBMP( oss.str().c_str(), VIEW_WINDOW_WIDTH, VIEW_WINDOW_HEIGHT, ptr.get() );
+		}
 
-
-
-
+		if( i == 1 && IS_BALL )
+		{
 		glfwMakeContextCurrent( window2 );
 		glClear( GL_COLOR_BUFFER_BIT );
 
@@ -416,6 +496,7 @@ int main( int argc, char **argv )
 		glDisableVertexAttribArray( 1 );
 		glFlush();
 		glfwSwapBuffers( window2 );
+		}
 
 		glfwPollEvents();
 	}

@@ -700,10 +700,10 @@ std::vector< std::uint8_t > make_texture( unsigned int const width, unsigned int
 						if( hypot( p[ 0 ] - x, p[ 1 ] - y, p[ 2 ] - z ) < dot_size )
 						{
 							auto const index = j * width + i;
-							ret[ index * 3 + 0 ] /= 2;
-							ret[ index * 3 + 1 ] /= 2;
-							ret[ index * 3 + 2 ] /= 2;
-							// goto out;
+							ret[ index * 3 + 0 ] = 30;
+							ret[ index * 3 + 1 ] = 30;
+							ret[ index * 3 + 2 ] = 30;
+							goto out;
 						}
 					}
 				}
