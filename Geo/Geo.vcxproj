@@ -155,6 +155,8 @@
   <ItemGroup>
     <ClInclude Include="load_ply.hpp" />
     <ClInclude Include="make_point.hpp" />
+    <ClInclude Include="shader.hpp" />
+    <ClInclude Include="vector.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

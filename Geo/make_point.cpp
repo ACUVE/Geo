@@ -15,6 +15,7 @@
 #include <thread>
 #include <random>
 #include "make_point.hpp"
+#include "vector.hpp"
 
 template< typename INT >
 static
@@ -88,6 +89,35 @@ auto thread_num()
 	}
 	return ret;
 #endif
+}
+
+// ポリゴンの2点のp_indexから残りの1点のp_indexを引く
+static
+std::unordered_map< std::tuple< unsigned int, unsigned int >, unsigned int > make_vmap( std::vector< unsigned int > const &index )
+{
+	std::unordered_map< std::tuple< unsigned int, unsigned int >, unsigned int > vmap;
+	for( auto i = 0u; i + 2 < std::size( index ); i += 3 )
+	{
+		auto const ii0 = index[ i + 0 ], ii1 = index[ i + 1 ], ii2 = index[ i + 2 ];
+		vmap[ std::make_tuple( ii0, ii1 ) ] = ii2;
+		vmap[ std::make_tuple( ii1, ii2 ) ] = ii0;
+		vmap[ std::make_tuple( ii2, ii0 ) ] = ii1;
+	}
+	return std::move( vmap );
+}
+// ポリゴンの2点のp_indexからそれ自身のindexのを引く
+static
+std::unordered_map< std::tuple< unsigned int, unsigned int >, unsigned int > make_map_pindex_to_index( std::vector< unsigned int > const &index )
+{
+	std::unordered_map< std::tuple< unsigned int, unsigned int >, unsigned int > map;
+	for( auto i = 0u; i + 2 < std::size( index ); i += 3 )
+	{
+		auto const ii0 = index[ i + 0 ], ii1 = index[ i + 1 ], ii2 = index[ i + 2 ];
+		map[ std::make_tuple( ii0, ii1 ) ] = i;
+		map[ std::make_tuple( ii1, ii2 ) ] = i;
+		map[ std::make_tuple( ii2, ii0 ) ] = i;
+	}
+	return std::move( map );
 }
 
 // 参考文献: http://atali.jp/blog/2014/08/geodesicdome/
@@ -489,7 +519,8 @@ std::vector< unsigned int >  make_claster_impl( unsigned int const point_num, un
 {
 	std::random_device rd;
 	std::mt19937_64 gen( rd() );
-	std::uniform_int_distribution< unsigned int > dist( 1, max_num );
+	// std::uniform_int_distribution< unsigned int > dist( 1, max_num );
+	std::uniform_int_distribution< unsigned int > dist( 1, std::min( max_num, 4u ) );
 
 	std::vector< unsigned int > ret_num( point_num );
 	std::vector< unsigned int > tmp( sep_num );
@@ -555,14 +586,7 @@ void make_claster( unsigned int const point_num, unsigned int const max_num, std
 		addmapbi( index[ i + 2 ], index[ i + 0 ] );
 	}
 
-	std::unordered_map< std::tuple< unsigned int, unsigned int >, unsigned int > vmap;
-	for( auto i = 0u; i + 2 < index.size(); i += 3 )
-	{
-		auto const ii0 = index[ i + 0 ], ii1 = index[ i + 1 ], ii2 = index[ i + 2 ];
-		vmap[ std::make_tuple( ii0, ii1 ) ] = ii2;
-		vmap[ std::make_tuple( ii1, ii2 ) ] = ii0;
-		vmap[ std::make_tuple( ii2, ii0 ) ] = ii1;
-	}
+	std::unordered_map< std::tuple< unsigned int, unsigned int >, unsigned int > vmap = make_vmap( index );
 	unsigned int argsepnum;
 	std::vector< unsigned int > argindex;
 
@@ -609,7 +633,6 @@ void make_claster( unsigned int const point_num, unsigned int const max_num, std
 	}
 	// */
 
-	// TODO: 途中
 	std::atomic< bool > flag = false;
 	std::vector< std::thread > th;
 	auto const tn = thread_num();
@@ -722,5 +745,184 @@ std::vector< std::uint8_t > make_texture( unsigned int const width, unsigned int
 	}
 	dosome( s, e );
 	if( !ths.empty() ) for( auto &&t : ths ) t.join();
+	return std::move( ret );
+}
+
+void make_dual( std::vector< float > const &point, std::vector< unsigned int > const &index, std::vector< float > &d_point, std::vector< std::vector< unsigned int > > &d_index )
+{
+	using Index_Type = std::decay_t< decltype( index[ 0 ] ) >;
+	Index_Type const d_point_offset = static_cast< Index_Type >( std::size( point ) / 3 ), dpo3 = d_point_offset * 3;
+	d_point = point;
+	d_point.resize( dpo3 + std::size( index ) / 3 * 3, 0.0f );
+	d_index.clear();
+	d_index.resize( std::size( point ) / 3 );
+	for( auto i = 0u; i + 2 < index.size(); i += 3 )
+	{
+		for( auto j = 0u; j < 3; ++j )
+		{
+			auto const ind = index[ i + j ] * 3;
+			for( auto k = 0u; k < 3; ++k )
+			{
+				d_point[ dpo3 + i + k ] += point[ ind + k ] / 3;
+			}
+		}
+	}
+	auto vmap = make_vmap( index );
+	auto pi2i = make_map_pindex_to_index( index );
+	for( auto i = 0u; i < std::size( d_index ); ++i )
+	{
+		auto const f_it = std::find_if( vmap.begin(), vmap.end(), [ & ]( auto &v )
+		{
+			return std::get< 0 >( v.first ) == i;
+		} );
+		if( f_it == vmap.end() ) continue;
+		auto it = f_it;
+		std::decay_t< decltype( d_index[ 0 ] ) > r{ i, d_point_offset + pi2i[ f_it->first ] / 3 };
+		r.emplace_back( d_point_offset + pi2i[ std::make_tuple( i, f_it->second ) ] / 3 );
+		for( it = vmap.find( std::make_tuple( i, it->second ) ) ; it != f_it; it = vmap.find( std::make_tuple( i, it->second ) ) )
+		{
+			if( it == vmap.end() ) break;
+			r.emplace_back( d_point_offset + pi2i[ std::make_tuple( i, it->second ) ] / 3 );
+		}
+		if( it == vmap.end() ) continue;
+		// if( std::size( r ) < 4 ) continue;
+		d_index[ i ] = std::move( r );
+	}
+#if 0
+	d_point.clear();
+	d_point.resize( std::size( index ) / 3 * 3, 0.0f );
+	d_index.clear();
+	d_index.resize( std::size( point ) / 3 );
+	for( auto i = 0u; i + 2 < index.size(); i += 3 )
+	{
+		for( auto j = 0u; j < 3; ++j )
+		{
+			auto const ind = index[ i + j ] * 3;
+			for( auto k = 0u; k < 3; ++k )
+			{
+				d_point[ i + k ] += point[ ind + k ] / 3;
+			}
+		}
+	}
+	auto vmap = make_vmap( index );
+	auto pi2i = make_map_pindex_to_index( index );
+	for( auto i = 0u; i < std::size( d_index ); ++i )
+	{
+		auto const f_it = std::find_if( vmap.begin(), vmap.end(), [ & ]( auto &v )
+		{
+			return std::get< 0 >( v.first ) == i;
+		} );
+		if( f_it == vmap.end() ) continue;
+		auto it = f_it;
+		std::decay_t< decltype( d_index[ 0 ] ) > r;
+		r.emplace_back( pi2i[ std::make_tuple( i, f_it->second ) ] / 3 );
+		for( it = vmap.find( std::make_tuple( i, it->second ) ) ; it != f_it; it = vmap.find( std::make_tuple( i, it->second ) ) )
+		{
+			if( it == vmap.end() ) break;
+			r.emplace_back( pi2i[ std::make_tuple( i, it->second ) ] / 3 );
+		}
+		if( it == vmap.end() ) continue;
+		d_index[ i ] = std::move( r );
+	}
+#endif
+}
+std::tuple< std::vector< float >, std::vector< std::vector< unsigned int > > > make_dual( std::vector< float > const &point, std::vector< unsigned int > const &index )
+{
+	std::vector< float > fv;
+	std::vector< std::vector< unsigned int > > uvv;
+	make_dual( point, index, fv, uvv );
+	return std::make_tuple( std::move( fv ), std::move( uvv ) );
+}
+
+void calc_dual_uv( std::vector< float > const &d_point, std::vector< std::vector< unsigned int > > const &d_index, std::vector< std::vector< float > > &d_uv )
+{
+	d_uv.clear();
+	d_uv.reserve( std::size( d_index ) );
+	for( auto i = 0u; i < std::size( d_index ); ++i )
+	{
+		using Vector = kato::vectorf;
+		auto const &dii = d_index[ i ];
+		std::vector< float > uv;
+		if( !dii.empty() )
+		{
+			Vector const center( &d_point[ dii[ 0 ] * 3 ] );
+	
+			Vector sum;
+			for( auto j = 1u; j + 1 < std::size( dii ); ++j )
+			{
+				Vector v1( &d_point[ dii[ j ] * 3 ] ), v2( &d_point[ dii[ j + 1 ] * 3 ] );
+				sum += v1.cross_product( v2 );
+			}
+			sum = sum.normarize();
+			Vector up; // y座標相当
+			Vector const kariup( 0.0f, 0.0f, 1.0f );	// must be normarized
+			if( sum != kariup )
+			{
+				auto const inner_product = sum.inner_product( kariup );
+				up = (kariup - inner_product * sum).normarize();
+			}
+			else
+			{
+				up = Vector( 1.0f, 0.0f, 0.0f ); // must be normarized
+			}
+			auto const right = up.cross_product( sum ); // x座標相当
+			
+			for( auto j = 0; j < std::size( dii ); ++j )
+			{
+				Vector const cvec( &d_point[ dii[ j ] * 3 ] );
+				auto const vc = cvec - center;
+				auto const u = vc.inner_product( right ), v = vc.inner_product( up );
+				uv.emplace_back( u );
+				uv.emplace_back( v );
+			}
+		}
+		d_uv.emplace_back( std::move( uv ) );
+	}
+}
+std::vector< std::vector< float > > calc_dual_uv( std::vector< float > const &d_point, std::vector< std::vector< unsigned int > > const &d_index )
+{
+	std::vector< std::vector< float > > fvv;
+	calc_dual_uv( d_point, d_index, fvv );
+	return std::move( fvv );
+}
+
+std::vector< std::uint8_t > make_single_texture( unsigned int const width, unsigned int const height, unsigned int const num, float const ratio, float const size )
+{
+	std::vector< std::uint8_t > ret( width * height * 3, std::numeric_limits< std::uint8_t >::max() );
+	if( num < 1 ) return std::move( ret );
+	std::vector< std::tuple< float, float > > circle_center;
+	if( num == 1 )
+	{
+		circle_center.emplace_back( std::make_tuple( 0.0f, 0.0f ) );
+	}
+	else
+	{
+		auto const dt = 2 * PI / num;
+		for( auto i = 0u; i < num; ++i )
+		{
+			auto const theta = dt * i;
+			auto const st = std::sin( theta ), ct = std::cos( theta );
+			circle_center.emplace_back( std::make_tuple( ratio * ct, ratio * st ) );
+		}
+	}
+	for( auto i = 0u; i < width; ++i )
+	{
+		float const x = (static_cast< float >( i ) - 1) / (width - 3) * 2 - 1.0f;
+		for( auto j = 0u; j < height; ++j )
+		{
+			float const y = (static_cast< float >( j ) - 1) / (height - 3) * 2 - 1.0f;
+			for( auto &&c : circle_center )
+			{
+				auto const d = std::hypot( x - std::get< 0 >( c ), y - std::get< 1 >( c ) );
+				if( d < size )
+				{
+					auto const ind = (i + j * width) * 3;
+					ret[ ind + 0 ] = 0;
+					ret[ ind + 1 ] = 0;
+					ret[ ind + 2 ] = 0;
+				}
+			}
+		}
+	}
 	return std::move( ret );
 }

@@ -18,3 +18,11 @@ void make_claster( unsigned int const point_num, unsigned int const max_num, std
 std::vector< unsigned int > make_claster( unsigned int const point_num, unsigned int const max_num, std::vector< unsigned int > const &index );
 
 std::vector< std::uint8_t > make_texture( unsigned int const width, unsigned int const height, std::vector< unsigned int > const &num, std::vector< float > const &point, float const dot_size, float const claster_size, bool const multi_thread = true );
+
+void make_dual( std::vector< float > const &point, std::vector< unsigned int > const &index, std::vector< float > &d_point, std::vector< std::vector< unsigned int > > &d_index );
+std::tuple< std::vector< float >, std::vector< std::vector< unsigned int > > > make_dual( std::vector< float > const &point, std::vector< unsigned int > const &index );
+
+void calc_dual_uv( std::vector< float > const &d_point, std::vector< std::vector< unsigned int > > const &d_index, std::vector< std::vector< float > > &d_uv );
+std::vector< std::vector< float > > calc_dual_uv( std::vector< float > const &d_point, std::vector< std::vector< unsigned int > > const &d_index );
+
+std::vector< std::uint8_t > make_single_texture( unsigned int const width, unsigned int const height, unsigned int const num, float const ratio, float const size );
