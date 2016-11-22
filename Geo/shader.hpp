@@ -171,7 +171,6 @@ void main( void )
 	color = texture( tex1, outuv );
 }
 )";
-constexpr unsigned int MAX_DUAL_TEXTURE_NUM_OF_SHADER = 6;
 constexpr char vertex_shader_dual_src2[] = 
 R"(#version 330 core
 

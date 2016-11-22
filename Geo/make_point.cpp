@@ -14,12 +14,15 @@
 #include <iostream>
 #include <thread>
 #include <random>
+#include <queue>
+#include <stack>
 #include "make_point.hpp"
 #include "vector.hpp"
 
 template< typename INT >
 static
-constexpr INT rol3( INT val ){
+constexpr
+INT rol3( INT val ){
 	static_assert( std::is_unsigned<INT>::value, "Rotate Left only makes sense for unsigned types" );
 	return (val << 3) | (val >> (sizeof( INT ) * CHAR_BIT - 3));
 }
@@ -57,12 +60,14 @@ namespace std
 }
 
 template< typename T >
-constexpr T const_sqrt_aux( T s, T x, T prev )
+constexpr
+T const_sqrt_aux( T s, T x, T prev )
 {
 	return x != prev ? const_sqrt_aux( s, ( x + s / x ) / static_cast< T >( 2.0 ), x ) : x;
 }
 template< typename T >
-constexpr T const_sqrt( T s )
+constexpr
+T const_sqrt( T s )
 {
 	return const_sqrt_aux< T >( s, s / static_cast< T >( 2.0 ), s );
 }
@@ -517,10 +522,28 @@ std::tuple< std::vector< float >, std::vector< unsigned int > > euclidean_to_the
 static
 std::vector< unsigned int >  make_claster_impl( unsigned int const point_num, unsigned int const max_num, unsigned int const sep_num, std::vector< unsigned int > const &index, std::vector< std::vector< unsigned int > > const &map, std::atomic< bool > &flag )
 {
+#if 0
+	// ïùóDêÊíTçıÇ≈Ç‚ÇËÇΩÇ©Ç¡ÇΩÅDé¿ëïìríÜÅiÅHÅj
+	constexpr unsigned int UMAX = std::numeric_limits< unsigned int >::max();
+	std::vector< unsigned int > ret_num( point_num, UMAX );
+	std::vector< unsigned int > tmp( sep_num );
+	std::unordered_set< std::vector< unsigned int > > set;
+	while( !flag )
+	{
+		unsigned int oknum = 0;
+		std::queue< unsigned int > queue;
+		std::stack< unsigned int > stack;
+		while( oknum < point_num && !flag )
+		{
+			std::find()
+		}
+		
+	}
+#else
 	std::random_device rd;
 	std::mt19937_64 gen( rd() );
 	// std::uniform_int_distribution< unsigned int > dist( 1, max_num );
-	std::uniform_int_distribution< unsigned int > dist( 1, std::min( max_num, 4u ) );
+	std::uniform_int_distribution< unsigned int > dist( 1, max_num );
 
 	std::vector< unsigned int > ret_num( point_num );
 	std::vector< unsigned int > tmp( sep_num );
@@ -564,6 +587,7 @@ std::vector< unsigned int >  make_claster_impl( unsigned int const point_num, un
 		return std::move( ret_num );
 	}
 	return {};
+#endif
 }
 void make_claster( unsigned int const point_num, unsigned int const max_num, std::vector< unsigned int > const &index, std::vector< unsigned int > &num )
 {
@@ -751,6 +775,7 @@ std::vector< std::uint8_t > make_texture( unsigned int const width, unsigned int
 void make_dual( std::vector< float > const &point, std::vector< unsigned int > const &index, std::vector< float > &d_point, std::vector< std::vector< unsigned int > > &d_index )
 {
 	using Index_Type = std::decay_t< decltype( index[ 0 ] ) >;
+	using Dual_Index_Type = std::decay_t< decltype( d_index[ 0 ] ) >;
 	Index_Type const d_point_offset = static_cast< Index_Type >( std::size( point ) / 3 ), dpo3 = d_point_offset * 3;
 	d_point = point;
 	d_point.resize( dpo3 + std::size( index ) / 3 * 3, 0.0f );
@@ -771,13 +796,16 @@ void make_dual( std::vector< float > const &point, std::vector< unsigned int > c
 	auto pi2i = make_map_pindex_to_index( index );
 	for( auto i = 0u; i < std::size( d_index ); ++i )
 	{
-		auto const f_it = std::find_if( vmap.begin(), vmap.end(), [ & ]( auto &v )
-		{
-			return std::get< 0 >( v.first ) == i;
-		} );
+		auto const f_it = std::find_if(
+			vmap.begin(), vmap.end(),
+			[ & ]( auto &v )
+			{
+				return std::get< 0 >( v.first ) == i;
+			}
+		);
 		if( f_it == vmap.end() ) continue;
 		auto it = f_it;
-		std::decay_t< decltype( d_index[ 0 ] ) > r{ i, d_point_offset + pi2i[ f_it->first ] / 3 };
+		Dual_Index_Type r{ i, d_point_offset + pi2i[ f_it->first ] / 3 };
 		r.emplace_back( d_point_offset + pi2i[ std::make_tuple( i, f_it->second ) ] / 3 );
 		for( it = vmap.find( std::make_tuple( i, it->second ) ) ; it != f_it; it = vmap.find( std::make_tuple( i, it->second ) ) )
 		{
