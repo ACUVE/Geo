@@ -224,7 +224,7 @@ int main( int argc, char **argv )
 	std::vector< std::vector< std::uint8_t > > texture_data;
 	for( unsigned int i = 1u; i <= MAX_CLUSTER_NUM; ++i )
 	{
-		texture_data.emplace_back( make_single_texture( TEXTURE_WIDTH_HEIGHT, TEXTURE_WIDTH_HEIGHT, i, 0.6f, 0.2f ) );
+		texture_data.emplace_back( make_cluster_texture( TEXTURE_WIDTH_HEIGHT, TEXTURE_WIDTH_HEIGHT, i, 0.6f, 0.2f ) );
 		std::ostringstream oss;
 		oss << "texture_" << i << ".bmp";
 		kato::writeBMP( oss.str().c_str(), TEXTURE_WIDTH_HEIGHT, TEXTURE_WIDTH_HEIGHT, &texture_data.back()[ 0 ] );

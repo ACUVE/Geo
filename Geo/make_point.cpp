@@ -914,7 +914,7 @@ std::vector< std::vector< float > > calc_dual_uv( std::vector< float > const &d_
 	return std::move( fvv );
 }
 
-std::vector< std::uint8_t > make_single_texture( unsigned int const width, unsigned int const height, unsigned int const num, float const ratio, float const size )
+std::vector< std::uint8_t > make_cluster_texture( unsigned int const width, unsigned int const height, unsigned int const num, float const ratio, float const size )
 {
 	std::vector< std::uint8_t > ret( width * height * 3, std::numeric_limits< std::uint8_t >::max() );
 	if( num < 1 ) return std::move( ret );

@@ -25,4 +25,4 @@ std::tuple< std::vector< float >, std::vector< std::vector< unsigned int > > > m
 void calc_dual_uv( std::vector< float > const &d_point, std::vector< std::vector< unsigned int > > const &d_index, std::vector< std::vector< float > > &d_uv );
 std::vector< std::vector< float > > calc_dual_uv( std::vector< float > const &d_point, std::vector< std::vector< unsigned int > > const &d_index );
 
-std::vector< std::uint8_t > make_single_texture( unsigned int const width, unsigned int const height, unsigned int const num, float const ratio, float const size );
+std::vector< std::uint8_t > make_cluster_texture( unsigned int const width, unsigned int const height, unsigned int const num, float const ratio, float const size );
