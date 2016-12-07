@@ -10,14 +10,17 @@ public:
 	T x, y, z;
 
 public:
+	constexpr
 	vector()
 		: x{}, y{}, z{}
 	{
 	}
+	constexpr
 	vector( T const v1, T const v2, T const v3 )
 		: x( v1 ), y( v2 ), z( v3 )
 	{
 	}
+	constexpr
 	vector( T const *const pv )
 		: vector( pv[ 0 ], pv[ 1 ], pv[ 2 ] )
 	{
