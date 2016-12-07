@@ -17,7 +17,8 @@ std::tuple< std::vector< float >, std::vector< unsigned int > > euclidean_to_the
 void make_claster( unsigned int const point_num, unsigned int const max_num, std::vector< unsigned int > const &index, std::vector< unsigned int > &num );
 std::vector< unsigned int > make_claster( unsigned int const point_num, unsigned int const max_num, std::vector< unsigned int > const &index );
 
-std::vector< std::uint8_t > make_texture( unsigned int const width, unsigned int const height, std::vector< unsigned int > const &num, std::vector< float > const &point, float const dot_size, float const claster_size, bool const multi_thread = true );
+void make_texture( unsigned int const width, unsigned int const height, std::vector< unsigned int > const &num, std::vector< float > const &point, float const dot_size, float const claster_size_in_rad, bool const multi_thread, std::vector< std::uint8_t > &texture );
+std::vector< std::uint8_t > make_texture( unsigned int const width, unsigned int const height, std::vector< unsigned int > const &num, std::vector< float > const &point, float const dot_size, float const claster_size, bool const multi_thread );
 
 void make_dual( std::vector< float > const &point, std::vector< unsigned int > const &index, std::vector< float > &d_point, std::vector< std::vector< unsigned int > > &d_index );
 std::tuple< std::vector< float >, std::vector< std::vector< unsigned int > > > make_dual( std::vector< float > const &point, std::vector< unsigned int > const &index );
@@ -25,4 +26,8 @@ std::tuple< std::vector< float >, std::vector< std::vector< unsigned int > > > m
 void calc_dual_uv( std::vector< float > const &d_point, std::vector< std::vector< unsigned int > > const &d_index, std::vector< std::vector< float > > &d_uv );
 std::vector< std::vector< float > > calc_dual_uv( std::vector< float > const &d_point, std::vector< std::vector< unsigned int > > const &d_index );
 
-std::vector< std::uint8_t > make_cluster_texture( unsigned int const width, unsigned int const height, unsigned int const num, float const ratio, float const size );
+void make_high_resolution_object_uv( std::vector< float > const &point, std::vector< unsigned int > const &index, std::vector< float > const &hires_point, std::vector< unsigned int > const &hires_index, std::vector< unsigned int > &hires_nearest_point_index, std::vector< float > &hires_uv );
+std::tuple< std::vector< unsigned int >, std::vector< float > > make_high_resolution_object_uv( std::vector< float > const &point, std::vector< unsigned int > const &index, std::vector< float > const &hires_point, std::vector< unsigned int > const &hires_index );
+
+void make_cluster_texture( unsigned int const width, unsigned int const height, unsigned int const num, float const key_point_size, float const r, std::vector< std::uint8_t > &texture );
+std::vector< std::uint8_t > make_cluster_texture( unsigned int const width, unsigned int const height, unsigned int const num, float const key_point_size, float const r );

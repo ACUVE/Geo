@@ -27,6 +27,8 @@ INT rol3( INT val ){
 	return (val << 3) | (val >> (sizeof( INT ) * CHAR_BIT - 3));
 }
 
+using Vector = kato::vectorf;
+
 
 namespace std
 {
@@ -679,7 +681,7 @@ std::vector< unsigned int > make_claster( unsigned int const point_num, unsigned
 	return std::move( u );
 }
 
-std::vector< std::uint8_t > make_texture( unsigned int const width, unsigned int const height, std::vector< unsigned int > const &num, std::vector< float > const &point, float const dot_size, float const claster_size_in_rad, bool const multi_thread )
+void make_texture( unsigned int const width, unsigned int const height, std::vector< unsigned int > const &num, std::vector< float > const &point, float const dot_size, float const claster_size_in_rad, bool const multi_thread, std::vector< std::uint8_t > &texture )
 {
 	if( std::size( num ) != std::size( point ) / 3 )
 	{
@@ -728,7 +730,8 @@ std::vector< std::uint8_t > make_texture( unsigned int const width, unsigned int
 			}
 		}
 	}
-	std::vector< std::uint8_t > ret( width * height * 3, std::numeric_limits< std::uint8_t >::max() );
+	texture.clear();
+	texture.resize( width * height * 3, std::numeric_limits< std::uint8_t >::max() );
 	auto const dosome = [ & ]( unsigned int const s, unsigned int const e )
 	{
 		for( auto i = s; i < e; ++i )
@@ -747,9 +750,9 @@ std::vector< std::uint8_t > make_texture( unsigned int const width, unsigned int
 						if( hypot( p[ 0 ] - x, p[ 1 ] - y, p[ 2 ] - z ) < dot_size )
 						{
 							auto const index = j * width + i;
-							ret[ index * 3 + 0 ] = 30;
-							ret[ index * 3 + 1 ] = 30;
-							ret[ index * 3 + 2 ] = 30;
+							texture[ index * 3 + 0 ] = 30;
+							texture[ index * 3 + 1 ] = 30;
+							texture[ index * 3 + 2 ] = 30;
 							goto out;
 						}
 					}
@@ -769,7 +772,12 @@ std::vector< std::uint8_t > make_texture( unsigned int const width, unsigned int
 	}
 	dosome( s, e );
 	if( !ths.empty() ) for( auto &&t : ths ) t.join();
-	return std::move( ret );
+}
+std::vector< std::uint8_t > make_texture( unsigned int const width, unsigned int const height, std::vector< unsigned int > const &num, std::vector< float > const &point, float const dot_size, float const claster_size_in_rad, bool const multi_thread )
+{
+	std::vector< std::uint8_t > v;	
+	make_texture( width, height, num, point, dot_size, claster_size_in_rad, multi_thread, v );
+	return std::move( v );
 }
 
 void make_dual( std::vector< float > const &point, std::vector< unsigned int > const &index, std::vector< float > &d_point, std::vector< std::vector< unsigned int > > &d_index )
@@ -816,43 +824,6 @@ void make_dual( std::vector< float > const &point, std::vector< unsigned int > c
 		// if( std::size( r ) < 4 ) continue;
 		d_index[ i ] = std::move( r );
 	}
-#if 0
-	d_point.clear();
-	d_point.resize( std::size( index ) / 3 * 3, 0.0f );
-	d_index.clear();
-	d_index.resize( std::size( point ) / 3 );
-	for( auto i = 0u; i + 2 < index.size(); i += 3 )
-	{
-		for( auto j = 0u; j < 3; ++j )
-		{
-			auto const ind = index[ i + j ] * 3;
-			for( auto k = 0u; k < 3; ++k )
-			{
-				d_point[ i + k ] += point[ ind + k ] / 3;
-			}
-		}
-	}
-	auto vmap = make_vmap( index );
-	auto pi2i = make_map_pindex_to_index( index );
-	for( auto i = 0u; i < std::size( d_index ); ++i )
-	{
-		auto const f_it = std::find_if( vmap.begin(), vmap.end(), [ & ]( auto &v )
-		{
-			return std::get< 0 >( v.first ) == i;
-		} );
-		if( f_it == vmap.end() ) continue;
-		auto it = f_it;
-		std::decay_t< decltype( d_index[ 0 ] ) > r;
-		r.emplace_back( pi2i[ std::make_tuple( i, f_it->second ) ] / 3 );
-		for( it = vmap.find( std::make_tuple( i, it->second ) ) ; it != f_it; it = vmap.find( std::make_tuple( i, it->second ) ) )
-		{
-			if( it == vmap.end() ) break;
-			r.emplace_back( pi2i[ std::make_tuple( i, it->second ) ] / 3 );
-		}
-		if( it == vmap.end() ) continue;
-		d_index[ i ] = std::move( r );
-	}
-#endif
 }
 std::tuple< std::vector< float >, std::vector< std::vector< unsigned int > > > make_dual( std::vector< float > const &point, std::vector< unsigned int > const &index )
 {
@@ -862,49 +833,55 @@ std::tuple< std::vector< float >, std::vector< std::vector< unsigned int > > > m
 	return std::make_tuple( std::move( fv ), std::move( uvv ) );
 }
 
+static
+Vector calc_normal_vector( std::vector< float > const &point, std::vector< unsigned int > const &index )
+{
+	auto const index_size = std::size( point );
+	if( index_size == 0 ) return Vector{};
+	Vector const center( &point[ index[ 0 ] * 3 ] );
+	if( index_size == 1 ) return center;
+	Vector sum{};
+	for( auto i = 1u; i < index_size; ++i )
+	{
+		Vector const v1( &point[ index [ i ] * 3 ] ), v2( &point[ index[ i + 1 ] * 3 ]);
+		sum += v1.cross_product( v2 );
+	}
+	sum = sum.normarize();
+	return sum;
+}
+static
+std::tuple< Vector, Vector > calc_uv_axes( Vector const normal )
+{
+	Vector const kariup( 0.0f, 0.0f, 1.0f ); // must be normarized
+	Vector const up = normal != kariup ? (kariup - normal.inner_product( kariup ) * normal).normarize() : Vector( 1.0f, 0.0f, 0.0f ); // v座標軸
+	Vector const right = up.cross_product( normal ); // u座標軸相当
+	return std::make_tuple( right, up );
+}
+
 void calc_dual_uv( std::vector< float > const &d_point, std::vector< std::vector< unsigned int > > const &d_index, std::vector< std::vector< float > > &d_uv )
 {
 	d_uv.clear();
 	d_uv.reserve( std::size( d_index ) );
 	for( auto i = 0u; i < std::size( d_index ); ++i )
 	{
-		using Vector = kato::vectorf;
 		auto const &dii = d_index[ i ];
-		std::vector< float > uv;
+		std::vector< float > tuv;
 		if( !dii.empty() )
 		{
 			Vector const center( &d_point[ dii[ 0 ] * 3 ] );
-	
-			Vector sum;
-			for( auto j = 1u; j + 1 < std::size( dii ); ++j )
-			{
-				Vector v1( &d_point[ dii[ j ] * 3 ] ), v2( &d_point[ dii[ j + 1 ] * 3 ] );
-				sum += v1.cross_product( v2 );
-			}
-			sum = sum.normarize();
-			Vector up; // y座標相当
-			Vector const kariup( 0.0f, 0.0f, 1.0f );	// must be normarized
-			if( sum != kariup )
-			{
-				auto const inner_product = sum.inner_product( kariup );
-				up = (kariup - inner_product * sum).normarize();
-			}
-			else
-			{
-				up = Vector( 1.0f, 0.0f, 0.0f ); // must be normarized
-			}
-			auto const right = up.cross_product( sum ); // x座標相当
+			Vector const normal = calc_normal_vector( d_point, dii );
+			auto const uv = calc_uv_axes( normal );
 			
 			for( auto j = 0; j < std::size( dii ); ++j )
 			{
 				Vector const cvec( &d_point[ dii[ j ] * 3 ] );
 				auto const vc = cvec - center;
-				auto const u = vc.inner_product( right ), v = vc.inner_product( up );
-				uv.emplace_back( u );
-				uv.emplace_back( v );
+				auto const u = vc.inner_product( std::get< 0 >( uv ) ), v = vc.inner_product( std::get< 1 >( uv ) );
+				tuv.emplace_back( u );
+				tuv.emplace_back( v );
 			}
 		}
-		d_uv.emplace_back( std::move( uv ) );
+		d_uv.emplace_back( std::move( tuv ) );
 	}
 }
 std::vector< std::vector< float > > calc_dual_uv( std::vector< float > const &d_point, std::vector< std::vector< unsigned int > > const &d_index )
@@ -914,23 +891,97 @@ std::vector< std::vector< float > > calc_dual_uv( std::vector< float > const &d_
 	return std::move( fvv );
 }
 
-std::vector< std::uint8_t > make_cluster_texture( unsigned int const width, unsigned int const height, unsigned int const num, float const ratio, float const size )
+void make_high_resolution_object_uv( std::vector< float > const &point, std::vector< unsigned int > const &index, std::vector< float > const &hires_point, std::vector< unsigned int > const &hires_index, std::vector< unsigned int > &hires_nearest_point_index, std::vector< float > &hires_uv )
 {
-	std::vector< std::uint8_t > ret( width * height * 3, std::numeric_limits< std::uint8_t >::max() );
-	if( num < 1 ) return std::move( ret );
+	auto const hires_index_size = std::size( hires_index );
+	auto const hires_triangle_num = hires_index_size / 3;
+	// index毎にuvを与える（point毎ではない）
+	hires_uv.resize( hires_index_size * 2 );
+	// 三角形毎にpointのindexを与える（特に近くない時はstd::numeric_limits< unsigned int >::max()）
+	hires_nearest_point_index.resize( hires_triangle_num );
+	// 双対を得ておく
+	auto dual = make_dual( point, index );
+	auto &d_point = std::get< 0 >( dual );
+	auto &d_index = std::get< 1 >( dual );
+	d_index.erase( std::remove_if( d_index.begin(), d_index.end(), []( auto const &v ){ return v.empty(); } ), d_index.end() );
+	auto const d_index_size = std::size( d_index );
+	// それぞれの点について，uv座標軸を取得
+	std::vector< std::tuple< Vector, Vector > > uv_axes;
+	uv_axes.reserve( d_index_size );
+	for( auto i = 0u; i < d_index_size; ++i ) uv_axes.emplace_back( calc_uv_axes( calc_normal_vector( d_point, d_index[ i ] ) ) );
+	// hires側の点の全てについて，一番近い点を計算する
+	auto const hires_point_num = std::size( hires_point ) / 3;
+	constexpr auto NONE_INDEX = std::numeric_limits< unsigned int >::max();
+	std::vector< unsigned int > nearest_point_index( hires_point_num, NONE_INDEX );
+	for( auto i = 0u; i < hires_point_num; ++i )
+	{
+		auto min_distance = std::numeric_limits< float >::max();
+		Vector const hp( &hires_point[ i * 3 ] );
+		for( auto j = 0u; j < d_index_size; ++j )
+		{
+			Vector const p( &point[ j * 3 ] );
+			auto const distance = (p - hp).length();
+			if( distance < min_distance )
+			{
+				min_distance = distance;
+				nearest_point_index[ i ] = j;
+			}
+		}
+	}
+	// それぞれの点でUV計算
+	for( auto i = 0u; i < hires_triangle_num; ++i )
+	{
+		auto const fi = i * 3;
+		unsigned int const np[] = { nearest_point_index[ hires_index[ fi + 0 ] ], nearest_point_index[ hires_index[ fi + 1 ] ], nearest_point_index[ hires_index[ fi + 2 ] ] };
+		if( np[ 0 ] != np[ 1 ] || np[ 1 ] != np[ 2 ] )
+		{
+			hires_nearest_point_index[ i ] = NONE_INDEX;
+			std::fill_n( &hires_uv[ fi * 2 ], 2 * 3, 0.0f );
+		}
+		else
+		{
+			auto const np0 = np[ 0 ];
+			hires_nearest_point_index[ i ] = np0;
+			Vector const p( &point[ np0 * 3 ] );
+			Vector const hp( &hires_point[ fi ] );
+			auto const d = p - hp;
+			hires_uv[ fi * 2 + 0 ] = d.inner_product( std::get< 0 >( uv_axes[ np0 ] ) );
+			hires_uv[ fi * 2 + 1 ] = d.inner_product( std::get< 0 >( uv_axes[ np0 ] ) );
+		}
+	}
+}
+std::tuple< std::vector< unsigned int >, std::vector< float > > make_high_resolution_object_uv( std::vector< float > const &point, std::vector< unsigned int > const &index, std::vector< float > const &hires_point, std::vector< unsigned int > const &hires_index )
+{
+	std::vector< unsigned int > u;
+	std::vector< float > f;
+	make_high_resolution_object_uv( point, index, hires_point, hires_index, u, f );
+	return std::make_tuple( std::move( u ), std::move( f ) );
+}
+
+void make_cluster_texture( unsigned int const width, unsigned int const height, unsigned int const num, float const key_point_size, float const r, std::vector< std::uint8_t > &texture )
+{
+	texture.clear();
+	texture.resize( width * height * 3, std::numeric_limits< std::uint8_t >::max() );
+	if( num < 1 ) return;
 	std::vector< std::tuple< float, float > > circle_center;
 	if( num == 1 )
 	{
 		circle_center.emplace_back( std::make_tuple( 0.0f, 0.0f ) );
 	}
+	else if( num == 2 )
+	{
+		circle_center.emplace_back( std::make_tuple( -r / 2, 0.0f ) );
+		circle_center.emplace_back( std::make_tuple(  r / 2, 0.0f ) );
+	}
 	else
 	{
-		auto const dt = 2 * PI / num;
-		for( auto i = 0u; i < num; ++i )
+		circle_center.emplace_back( std::make_tuple( 0.0f, 0.0f ) );
+		auto const dt = 2 * PI / (num - 1);
+		for( auto i = 0u; i < num - 1; ++i )
 		{
 			auto const theta = dt * i;
 			auto const st = std::sin( theta ), ct = std::cos( theta );
-			circle_center.emplace_back( std::make_tuple( ratio * ct, ratio * st ) );
+			circle_center.emplace_back( std::make_tuple( r * ct, r * st ) );
 		}
 	}
 	for( auto i = 0u; i < width; ++i )
@@ -942,15 +993,18 @@ std::vector< std::uint8_t > make_cluster_texture( unsigned int const width, unsi
 			for( auto &&c : circle_center )
 			{
 				auto const d = std::hypot( x - std::get< 0 >( c ), y - std::get< 1 >( c ) );
-				if( d < size )
+				if( d < key_point_size )
 				{
 					auto const ind = (i + j * width) * 3;
-					ret[ ind + 0 ] = 0;
-					ret[ ind + 1 ] = 0;
-					ret[ ind + 2 ] = 0;
+					texture[ ind + 0 ] = texture[ ind + 1 ] = texture[ ind + 2 ] = 0;
 				}
 			}
 		}
 	}
-	return std::move( ret );
+}
+std::vector< std::uint8_t > make_cluster_texture( unsigned int const width, unsigned int const height, unsigned int const num, float const key_point_size, float const r )
+{
+	std::vector< std::uint8_t > v;
+	make_cluster_texture( width, height, num, key_point_size, r, v );
+	return std::move( v );
 }
