@@ -836,14 +836,14 @@ std::tuple< std::vector< float >, std::vector< std::vector< unsigned int > > > m
 static
 Vector calc_normal_vector( std::vector< float > const &point, std::vector< unsigned int > const &index )
 {
-	auto const index_size = std::size( point );
+	auto const index_size = std::size( index );
 	if( index_size == 0 ) return Vector{};
 	Vector const center( &point[ index[ 0 ] * 3 ] );
 	if( index_size == 1 ) return center;
 	Vector sum{};
-	for( auto i = 1u; i < index_size; ++i )
+	for( auto i = 1u; i < index_size - 1; ++i )
 	{
-		Vector const v1( &point[ index [ i ] * 3 ] ), v2( &point[ index[ i + 1 ] * 3 ]);
+		Vector const v1( &point[ index[ i ] * 3 ] ), v2( &point[ index[ i + 1 ] * 3 ]);
 		sum += v1.cross_product( v2 );
 	}
 	sum = sum.normarize();
@@ -891,7 +891,7 @@ std::vector< std::vector< float > > calc_dual_uv( std::vector< float > const &d_
 	return std::move( fvv );
 }
 
-void make_high_resolution_object_uv( std::vector< float > const &point, std::vector< unsigned int > const &index, std::vector< float > const &hires_point, std::vector< unsigned int > const &hires_index, std::vector< unsigned int > &hires_nearest_point_index, std::vector< float > &hires_uv )
+void calc_high_resolution_object_uv( std::vector< float > const &point, std::vector< unsigned int > const &index, std::vector< float > const &hires_point, std::vector< unsigned int > const &hires_index, std::vector< unsigned int > &hires_nearest_point_index, std::vector< float > &hires_uv )
 {
 	auto const hires_index_size = std::size( hires_index );
 	auto const hires_triangle_num = hires_index_size / 3;
@@ -912,19 +912,19 @@ void make_high_resolution_object_uv( std::vector< float > const &point, std::vec
 	// hires側の点の全てについて，一番近い点を計算する
 	auto const hires_point_num = std::size( hires_point ) / 3;
 	constexpr auto NONE_INDEX = std::numeric_limits< unsigned int >::max();
-	std::vector< unsigned int > nearest_point_index( hires_point_num, NONE_INDEX );
+	std::vector< unsigned int > nearest_point_d_index_index( hires_point_num, NONE_INDEX );
 	for( auto i = 0u; i < hires_point_num; ++i )
 	{
 		auto min_distance = std::numeric_limits< float >::max();
 		Vector const hp( &hires_point[ i * 3 ] );
 		for( auto j = 0u; j < d_index_size; ++j )
 		{
-			Vector const p( &point[ j * 3 ] );
+			Vector const p( &d_point[ d_index[ j ][ 0 ] * 3 ] );
 			auto const distance = (p - hp).length();
 			if( distance < min_distance )
 			{
 				min_distance = distance;
-				nearest_point_index[ i ] = j;
+				nearest_point_d_index_index[ i ] = j;
 			}
 		}
 	}
@@ -932,7 +932,7 @@ void make_high_resolution_object_uv( std::vector< float > const &point, std::vec
 	for( auto i = 0u; i < hires_triangle_num; ++i )
 	{
 		auto const fi = i * 3;
-		unsigned int const np[] = { nearest_point_index[ hires_index[ fi + 0 ] ], nearest_point_index[ hires_index[ fi + 1 ] ], nearest_point_index[ hires_index[ fi + 2 ] ] };
+		unsigned int const np[] = { nearest_point_d_index_index[ hires_index[ fi + 0 ] ], nearest_point_d_index_index[ hires_index[ fi + 1 ] ], nearest_point_d_index_index[ hires_index[ fi + 2 ] ] };
 		if( np[ 0 ] != np[ 1 ] || np[ 1 ] != np[ 2 ] )
 		{
 			hires_nearest_point_index[ i ] = NONE_INDEX;
@@ -940,21 +940,22 @@ void make_high_resolution_object_uv( std::vector< float > const &point, std::vec
 		}
 		else
 		{
-			auto const np0 = np[ 0 ];
+			auto const np0_di = np[ 0 ];
+			auto const np0 = d_index[ np0_di ][ 0 ];
 			hires_nearest_point_index[ i ] = np0;
 			Vector const p( &point[ np0 * 3 ] );
-			Vector const hp( &hires_point[ fi ] );
+			Vector const hp( &hires_point[ hires_index[ fi ] * 3 ] ); // おかしい？
 			auto const d = p - hp;
-			hires_uv[ fi * 2 + 0 ] = d.inner_product( std::get< 0 >( uv_axes[ np0 ] ) );
-			hires_uv[ fi * 2 + 1 ] = d.inner_product( std::get< 0 >( uv_axes[ np0 ] ) );
+			hires_uv[ fi * 2 + 0 ] = d.inner_product( std::get< 0 >( uv_axes[ np0_di ] ) );
+			hires_uv[ fi * 2 + 1 ] = d.inner_product( std::get< 0 >( uv_axes[ np0_di ] ) );
 		}
 	}
 }
-std::tuple< std::vector< unsigned int >, std::vector< float > > make_high_resolution_object_uv( std::vector< float > const &point, std::vector< unsigned int > const &index, std::vector< float > const &hires_point, std::vector< unsigned int > const &hires_index )
+std::tuple< std::vector< unsigned int >, std::vector< float > > calc_high_resolution_object_uv( std::vector< float > const &point, std::vector< unsigned int > const &index, std::vector< float > const &hires_point, std::vector< unsigned int > const &hires_index )
 {
 	std::vector< unsigned int > u;
 	std::vector< float > f;
-	make_high_resolution_object_uv( point, index, hires_point, hires_index, u, f );
+	calc_high_resolution_object_uv( point, index, hires_point, hires_index, u, f );
 	return std::make_tuple( std::move( u ), std::move( f ) );
 }
 
