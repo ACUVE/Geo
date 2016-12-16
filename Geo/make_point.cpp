@@ -16,6 +16,7 @@
 #include <random>
 #include <queue>
 #include <stack>
+#include <cassert>
 #include "make_point.hpp"
 #include "vector.hpp"
 
@@ -944,10 +945,13 @@ void calc_high_resolution_object_uv( std::vector< float > const &point, std::vec
 			auto const np0 = d_index[ np0_di ][ 0 ];
 			hires_nearest_point_index[ i ] = np0;
 			Vector const p( &point[ np0 * 3 ] );
-			Vector const hp( &hires_point[ hires_index[ fi ] * 3 ] ); // おかしい？
-			auto const d = p - hp;
-			hires_uv[ fi * 2 + 0 ] = d.inner_product( std::get< 0 >( uv_axes[ np0_di ] ) );
-			hires_uv[ fi * 2 + 1 ] = d.inner_product( std::get< 0 >( uv_axes[ np0_di ] ) );
+			for( auto j = 0u; j < 3; ++j )
+			{
+				Vector const hp( &hires_point[ hires_index[ fi + j ] * 3 ] );
+				auto const d = hp - p;
+				hires_uv[ (fi + j) * 2 + 0 ] = d.inner_product( std::get< 0 >( uv_axes[ np0_di ] ) );
+				hires_uv[ (fi + j) * 2 + 1 ] = d.inner_product( std::get< 1 >( uv_axes[ np0_di ] ) );
+			}
 		}
 	}
 }
@@ -959,53 +963,141 @@ std::tuple< std::vector< unsigned int >, std::vector< float > > calc_high_resolu
 	return std::make_tuple( std::move( u ), std::move( f ) );
 }
 
-void make_cluster_texture( unsigned int const width, unsigned int const height, unsigned int const num, float const key_point_size, float const r, std::vector< std::uint8_t > &texture )
+static
+void make_cluster_texture_sub_vector( unsigned int const width_step, unsigned int const cluster_size_width, unsigned int const cluster_size_height, unsigned int const num, float const key_point_size, float const r, std::uint8_t *p )
 {
-	texture.clear();
-	texture.resize( width * height * 3, std::numeric_limits< std::uint8_t >::max() );
 	if( num < 1 ) return;
 	std::vector< std::tuple< float, float > > circle_center;
-	if( num == 1 )
+	circle_center.reserve( num );
+	switch( num )
 	{
-		circle_center.emplace_back( std::make_tuple( 0.0f, 0.0f ) );
-	}
-	else if( num == 2 )
-	{
-		circle_center.emplace_back( std::make_tuple( -r / 2, 0.0f ) );
-		circle_center.emplace_back( std::make_tuple(  r / 2, 0.0f ) );
-	}
-	else
-	{
-		circle_center.emplace_back( std::make_tuple( 0.0f, 0.0f ) );
-		auto const dt = 2 * PI / (num - 1);
-		for( auto i = 0u; i < num - 1; ++i )
+	case 1: circle_center.emplace_back( std::make_tuple( 0.0f, 0.0f ) ); break;
+	case 2: circle_center.emplace_back( std::make_tuple( -r / 2, 0.0f ) ); circle_center.emplace_back( std::make_tuple( r / 2, 0.0f ) ); break;
+	default:
 		{
-			auto const theta = dt * i;
-			auto const st = std::sin( theta ), ct = std::cos( theta );
-			circle_center.emplace_back( std::make_tuple( r * ct, r * st ) );
+			circle_center.emplace_back( std::make_tuple( 0.0f, 0.0f ) );
+			auto const dt = 2 * PI / (num - 1);
+			for( auto i = 0u; i < num - 1; ++i )
+			{
+				auto const theta = dt * i;
+				auto const st = std::sin( theta ), ct = std::cos( theta );
+				circle_center.emplace_back( std::make_tuple( r * ct, r * st ) );
+			}
 		}
+		break;
 	}
-	for( auto i = 0u; i < width; ++i )
+	for( auto i = 0u; i < cluster_size_width; ++i )
 	{
-		float const x = (static_cast< float >( i ) - 1) / (width - 3) * 2 - 1.0f;
-		for( auto j = 0u; j < height; ++j )
+		float const x = (static_cast< float >( i ) - 1) / (cluster_size_width - 3) * 2 - 1.0f;
+		for( auto j = 0u; j < cluster_size_height; ++j )
 		{
-			float const y = (static_cast< float >( j ) - 1) / (height - 3) * 2 - 1.0f;
+			float const y = (static_cast< float >( j ) - 1) / (cluster_size_height - 3) * 2 - 1.0f;
 			for( auto &&c : circle_center )
 			{
 				auto const d = std::hypot( x - std::get< 0 >( c ), y - std::get< 1 >( c ) );
 				if( d < key_point_size )
 				{
-					auto const ind = (i + j * width) * 3;
-					texture[ ind + 0 ] = texture[ ind + 1 ] = texture[ ind + 2 ] = 0;
+					auto const ind = (i + j * width_step) * 3;
+					p[ ind + 0 ] = p[ ind + 1 ] = p[ ind + 2 ] = 0;
 				}
 			}
 		}
 	}
+}
+
+void make_cluster_texture( unsigned int const width, unsigned int const height, unsigned int const num, float const key_point_size, float const r, std::vector< std::uint8_t > &texture )
+{
+	texture.clear();
+	texture.resize( width * height * 3, std::numeric_limits< std::decay_t< decltype( texture[ 0 ] ) > >::max() );
+	make_cluster_texture_sub_vector( width, width, height, num, key_point_size, r, &texture[ 0 ]);
 }
 std::vector< std::uint8_t > make_cluster_texture( unsigned int const width, unsigned int const height, unsigned int const num, float const key_point_size, float const r )
 {
 	std::vector< std::uint8_t > v;
 	make_cluster_texture( width, height, num, key_point_size, r, v );
 	return std::move( v );
+}
+
+void
+make_high_resolution_object_texture_and_uv_for_ply(
+	unsigned int const cluster_size,
+	float const key_point_size,
+	float const r,
+	std::vector< unsigned int > const &num,
+	std::vector< unsigned int > const &hires_nearest_point_index,
+	std::vector< float > const &hires_uv,
+	unsigned int &width,
+	unsigned int &height,
+	std::vector< float > &texture_uv,
+	std::vector< std::uint8_t > &texture
+)
+{
+	assert( hires_nearest_point_index.size() * 6 == hires_uv.size() );
+	// テクスチャ生成
+	auto const numminmax = std::minmax_element( num.begin(), num.end() );
+	auto const nummin = *std::get< 0 >( numminmax ), nummax = *std::get< 1 >( numminmax );
+	auto const nonzero = nummin != 0;
+	auto const c = nummax - nummin + 1 + nonzero;
+	// auto const cluster_margin_size = (cluster_size + 1) / 2;
+	auto const cluster_margin_size = cluster_size * 1;
+	// w * h * 3 がオーバーフローすることがあるので，std::size_t
+	std::size_t const w = width = (cluster_size + cluster_margin_size) * c + cluster_margin_size;
+	std::size_t const h = height = cluster_size + cluster_margin_size * 2;
+	texture.clear();
+	texture.resize( w * h * 3, std::numeric_limits< std::decay_t< decltype( texture[ 0 ] ) > >::max() );
+	auto left_offset = cluster_margin_size;
+	if( nonzero )
+	{
+		make_cluster_texture_sub_vector( static_cast< unsigned int >( w ), cluster_size, cluster_size, 0, key_point_size, r, &texture[ (left_offset + cluster_margin_size * w) * 3 ] );
+		left_offset += cluster_margin_size + cluster_size;
+	}
+	for( auto i = nummin; i <= nummax; ++i )
+	{
+		make_cluster_texture_sub_vector( static_cast< unsigned int >( w ), cluster_size, cluster_size, i, key_point_size, r, &texture[ (left_offset + cluster_margin_size * w) * 3 ] );
+		left_offset += cluster_margin_size + cluster_size;
+	}
+	// UV座標計算
+	auto const hires_triangle_num = std::size( hires_nearest_point_index );
+	auto const cluster_size_plus_cluster_margin_size = cluster_size + cluster_margin_size;
+	texture_uv.resize( std::size( hires_uv ) );
+	for( auto i = 0u; i < hires_triangle_num; ++i )
+	{
+		auto const npi = hires_nearest_point_index[ i ];
+		auto const tri_off = i * 3;
+		if( npi == std::numeric_limits< std::decay_t< decltype( hires_nearest_point_index[ 0 ] ) > >::max() )
+		{
+			for( auto j = 0u; j < 3u; ++j )
+			{
+				auto const offset = (tri_off + j) * 2;
+				texture_uv[ offset + 0 ] = ( cluster_margin_size + static_cast< float >( cluster_size ) / 2 ) / w;
+				texture_uv[ offset + 1 ] = 0.5f;
+			}
+		}
+		else
+		{
+			auto const n = num[ npi ];
+			for( auto j = 0u; j < 3u; ++j )
+			{
+				auto const offset = (tri_off + j) * 2;
+				texture_uv[ offset + 0 ] = static_cast< float >( (n - nummin + nonzero) * cluster_size_plus_cluster_margin_size - cluster_size ) / w + hires_uv[ offset + 0 ] * cluster_size / w;
+				texture_uv[ offset + 1 ] = hires_uv[ offset + 1 ] * cluster_size / h + static_cast< float >( cluster_margin_size ) / h;
+			}
+		}
+	}
+}
+std::tuple< unsigned int, unsigned int, std::vector< float >, std::vector< std::uint8_t > >
+make_high_resolution_object_texture_and_uv_for_ply(
+	unsigned int const cluster_size,
+	float const key_point_size,
+	float const r,
+	std::vector< unsigned int > const &num,
+	std::vector< unsigned int > const &hires_nearest_point_index,
+	std::vector< float > const &hires_uv
+)
+{
+	unsigned int w, h;
+	std::vector< float > f;
+	std::vector< std::uint8_t > u;
+	make_high_resolution_object_texture_and_uv_for_ply( cluster_size, key_point_size, r, num, hires_nearest_point_index, hires_uv, w, h, f, u );
+	return std::make_tuple( w, h, std::move( f ), std::move( u ) );
 }
