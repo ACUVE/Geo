@@ -1,8 +1,21 @@
-#pragma once
+ï»¿#pragma once
 
 #include <vector>
 #include <tuple>
 #include <memory>
+#include <unordered_map>
+#include "custom_hash.hpp"
+
+// ãƒãƒªã‚´ãƒ³ã®2ç‚¹ã®p_indexã‹ã‚‰æ®‹ã‚Šã®1ç‚¹ã®p_indexã‚’å¼•ã
+cunordered_map< std::tuple< unsigned int, unsigned int >, unsigned int >
+make_vmap(
+	std::vector< unsigned int > const &index
+);
+// ãƒãƒªã‚´ãƒ³ã®2ç‚¹ã®p_indexã‹ã‚‰ãã‚Œè‡ªèº«ã®indexã®ã‚’å¼•ã
+cunordered_map< std::tuple< unsigned int, unsigned int >, unsigned int >
+make_map_pindex_to_index(
+	std::vector< unsigned int > const &index
+);
 
 void
 make_geodesic_dome_point(
@@ -83,7 +96,7 @@ make_texture(
 	bool const multi_thread
 );
 
-// ÀsŒã std::equal( point.begin(), point.end(), d_point.begin(), d_point.begin() + point.size() ) == true && (d_index[ind].empty() || d_index[ind][0]==ind) ‚ğ–‚½‚·
+// å®Ÿè¡Œå¾Œ std::equal( point.begin(), point.end(), d_point.begin(), d_point.begin() + point.size() ) == true && (d_index[ind].empty() || d_index[ind][0]==ind) ã‚’æº€ãŸã™
 void
 make_dual(
 	std::vector< float > const &point,
@@ -97,7 +110,19 @@ make_dual(
 	std::vector< unsigned int > const &index
 );
 
-// ‚±‚±‚Å‚ÌUVÀ•W‚ÍCƒeƒNƒXƒ`ƒƒ‚Ì’†S‚ğ(0,0)‚Æ‚µ‚Ä‚¢‚é“_‚É’ˆÓD‚Ü‚½CƒXƒP[ƒ‹‚àŠ„‚Æ“K“–‚Å‚ ‚éD
+void
+calc_dcm_cluster_normal(
+	std::vector< float > const &dual_point,
+	std::vector< std::vector< unsigned int > > const &dual_index,
+	std::vector< float > &dcm_normal
+);
+std::vector< float >
+calc_dcm_cluster_normal(
+	std::vector< float > const &dual_point,
+	std::vector< std::vector< unsigned int > > const &dual_index
+);
+
+// ã“ã“ã§ã®UVåº§æ¨™ã¯ï¼Œãƒ†ã‚¯ã‚¹ãƒãƒ£ã®ä¸­å¿ƒã‚’(0,0)ã¨ã—ã¦ã„ã‚‹ç‚¹ã«æ³¨æ„ï¼ã¾ãŸï¼Œã‚¹ã‚±ãƒ¼ãƒ«ã‚‚å‰²ã¨é©å½“ã§ã‚ã‚‹ï¼
 void
 calc_dual_uv(
 	std::vector< float > const &d_point,
@@ -110,7 +135,7 @@ calc_dual_uv(
 	std::vector< std::vector< unsigned int > > const &d_index
 );
 
-// ‚±‚±‚Å‚ÌUVÀ•W‚ÍCƒeƒNƒXƒ`ƒƒ‚Ì’†S‚ğ(0,0)‚Æ‚µ‚Ä‚¢‚é“_‚É’ˆÓD‚Ü‚½CƒXƒP[ƒ‹‚àŠ„‚Æ“K“–‚Å‚ ‚éD
+// ã“ã“ã§ã®UVåº§æ¨™ã¯ï¼Œãƒ†ã‚¯ã‚¹ãƒãƒ£ã®ä¸­å¿ƒã‚’(0,0)ã¨ã—ã¦ã„ã‚‹ç‚¹ã«æ³¨æ„ï¼ã¾ãŸï¼Œã‚¹ã‚±ãƒ¼ãƒ«ã‚‚å‰²ã¨é©å½“ã§ã‚ã‚‹ï¼
 void
 calc_high_resolution_object_uv(
 	std::vector< float > const &point,
@@ -146,8 +171,8 @@ make_cluster_texture(
 	float const r
 );
 
-// hires_uv‚ÌUVÀ•W‚ÍCƒeƒNƒXƒ`ƒƒ‚Ì’†S‚ğ(0.5,0.5)‚Æ‚µ‚È‚¯‚ê‚Î‚È‚ç‚È‚¢“_‚É’ˆÓiƒXƒP[ƒ‹‚à‚¢‚¢Š´‚¶‚É’²ß‚µ‚Ä—~‚µ‚¢j
-// ‚Â‚Ü‚èCˆê”Ê“I‚ÈUVÀ•W•\Œ»‚Å‚ ‚é
+// hires_uvã®UVåº§æ¨™ã¯ï¼Œãƒ†ã‚¯ã‚¹ãƒãƒ£ã®ä¸­å¿ƒã‚’(0.5,0.5)ã¨ã—ãªã‘ã‚Œã°ãªã‚‰ãªã„ç‚¹ã«æ³¨æ„ï¼ˆã‚¹ã‚±ãƒ¼ãƒ«ã‚‚ã„ã„æ„Ÿã˜ã«èª¿ç¯€ã—ã¦æ¬²ã—ã„ï¼‰
+// ã¤ã¾ã‚Šï¼Œä¸€èˆ¬çš„ãªUVåº§æ¨™è¡¨ç¾ã§ã‚ã‚‹
 void
 make_high_resolution_object_texture_and_uv_for_ply(
 	unsigned int const cluster_size,
@@ -169,4 +194,29 @@ make_high_resolution_object_texture_and_uv_for_ply(
 	std::vector< unsigned int > const &num,
 	std::vector< unsigned int > const &hires_nearest_point_index,
 	std::vector< float > const &hires_uv
+);
+
+void
+make_adjacency_matrix(
+	std::vector< unsigned int > const &index,
+	unsigned int const max_index,
+	std::vector< std::vector< std::uint8_t > > &am
+);
+std::vector< std::vector< std::uint8_t > >
+make_adjacency_matrix(
+	std::vector< unsigned int > const &index,
+	unsigned int const max_index
+);
+
+// ç‚¹ã®æ³•ç·šã‚’è¨ˆç®—ã™ã‚‹ã‘ã‚Œã©ã‚‚ï¼Œæã‚‰ãä¸€èˆ¬çš„ã§ã‚ã‚‹ã¨æ€ã‚ã‚Œã‚‹æ–¹æ³•ã§è¨ˆç®—ã™ã‚‹ã‚„ã¤
+void
+calc_normal(
+	std::vector< float > const &point,
+	std::vector< unsigned int > const &index,
+	std::vector< float > &normal
+);
+std::vector< float >
+calc_normal(
+	std::vector< float > const &point,
+	std::vector< unsigned int > const &index
 );

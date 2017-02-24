@@ -2,7 +2,7 @@ set -ve
 
 OUTDIRECTORY="linux"
 CXXFLAGS="-Wall -O3 -std=c++1z"
-LIBS="-lopencv_core -lopencv_highgui -lopencv_imgcodecs -lopencv_imgproc -pthread"
+LIBS="-lopencv_core -lopencv_highgui -lopencv_imgcodecs -lopencv_imgproc -lGLEW -pthread"
 FADE2DLIBS=""
 
 cd `dirname $0`

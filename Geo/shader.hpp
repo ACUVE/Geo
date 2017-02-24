@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 constexpr char vertex_shader_src[] =
 R"(#version 330 core

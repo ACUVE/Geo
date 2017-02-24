@@ -1,4 +1,4 @@
-#define NOMINMAX
+Ôªø#define NOMINMAX
 #include <algorithm>
 #include <numeric>
 #include <iostream>
@@ -12,18 +12,16 @@
 #include <sstream>
 #include <fstream>
 #include <chrono>
-// #include <windows.h>
-#include <gl/glew.h>
-#include <gl/wglew.h>
-#include <gl/GL.h>
-#include <GL/GLU.h>
+#include <GL/glew.h>
+#include <GL/gl.h>
+#include <GL/glu.h>
 #include <GLFW/glfw3.h>
 #include <glm/gtx/transform.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <iomanip>
 
 #include "make_point.hpp"
-#include "ply.hpp"
+#include "model_io.hpp"
 #include "shader.hpp"
 #include "my_utility.hpp"
 
@@ -119,78 +117,171 @@ GLuint compile_shader( char const *vertex_shader_src, char const *fragment_shade
 	glDeleteShader( fragment_shader );
 
 	return program;
-
 }
 
-// èdêSÇå¥ì_Ç…à⁄ìÆ
+static
+std::tuple< float, float, float > calc_cog( std::vector< float > const &point )
+{
+	auto const point_size = std::size( point );
+	auto t = std::make_tuple( 0.0f, 0.0f, 0.0f );
+	for( auto i = 0u; i + 2 < point_size; i += 3 )
+	{
+		std::get< 0 >( t ) += point[ i + 0 ];
+		std::get< 1 >( t ) += point[ i + 1 ];
+		std::get< 2 >( t ) += point[ i + 2 ];
+	}
+	std::get< 0 >( t ) /= point_size / 3;
+	std::get< 1 >( t ) /= point_size / 3;
+	std::get< 2 >( t ) /= point_size / 3;
+	return std::move( t );
+}
+
+static
+void set_origin( std::tuple< float, float, float > const &org, std::vector< float > &point )
+{
+	auto const point_size = std::size( point );
+	for( auto i = 0u; i + 2 < point_size; i += 3 )
+	{
+		point[ i + 0 ] -= std::get< 0 >( org );
+		point[ i + 1 ] -= std::get< 1 >( org );
+		point[ i + 2 ] -= std::get< 2 >( org );
+	}
+}
+
+// ÈáçÂøÉ„ÇíÂéüÁÇπ„Å´ÁßªÂãï
 static
 void set_cog_to_origin( std::vector< float > &point )
 {
-	float sum[ 3 ] = {};
-	for( auto i = 0u; i + 2 < point.size(); i += 3 )
-		for( auto j = 0u; j < 3u; ++j )
-			sum[ j ] += point[ i + j ];
-	for( auto j = 0u; j < 3; ++j ) sum[ j ] /= point.size() / 3;
-	for( auto i = 0u; i + 2 < point.size(); i += 3 )
-		for( auto j = 0u; j < 3u; ++j )
-			point[ i + j ] -= sum[ j ];
+	set_origin( calc_cog( point ), point );
+}
+
+static
+std::string to_local_path( std::string filepath )
+{
+#if _WIN32
+	std::string::size_type pos = 0u;
+	while( true )
+	{
+		pos = filepath.find( '/', pos );
+		if( pos == std::string::npos ) break;
+		filepath.replace( pos, 1, 1, '\\' );
+		pos += 1;
+	}
+#endif
+	return std::move( filepath );
+}
+
+template< typename Func >
+void apply( std::vector< float > &point, Func func )
+{
+	auto const point_size = std::size( point );
+	for( auto i = 0u; i + 2 < point_size; i += 3 )
+	{
+		func( point[ i + 0 ], point[ i + 1 ], point[ i + 2 ] );
+	}
 }
 
 int main( int argc, char **argv )
+try
 {
-	// ÉtÉ@ÉCÉãñºÇÃê›íË
-	std::string filename = "C:\\Users\\t2ladmin\\Downloads\\acvd1.1\\Laurana50k_100\\output_1.ply";
-	std::string filename_hires = R"(..\..\DCM\DCM\data\ply\Laurana50k.ply)";
+	std::string const to_data = R"(../../exp_data/)";
+	// „Éï„Ç°„Ç§„É´Âêç„ÅÆË®≠ÂÆö
+	// /*
+	std::string filename = to_local_path( to_data + R"(Lau_150_normalized.ply)" );
+	std::string filename_hires = to_local_path( to_data +  R"(Lau_hires_normalized.ply)" );
+	std::string filename_num = to_local_path( to_data + R"(lau/150.ply.clu6.1476391063.dat)" );
+	// std::string filename_num = to_local_path( to_data + R"(dummy)" );
+	//*/
+	/*
+	std::string filename = to_local_path( to_data + R"(bun_zipper_lores.ply)" );
+	std::string filename_hires = to_local_path( to_data +  R"(bun_zipper_hires.ply)" );
+	std::string filename_num = to_local_path( to_data + R"(bun_zipper_lores.ply.6.1486540768.clu)" );
+	//*/
 
 	glm::mat4 proj = glm::perspective( glm::radians( 30.0f ), static_cast< float >( VIEW_WINDOW_WIDTH ) / VIEW_WINDOW_HEIGHT, 0.1f, 10000.0f );
-	glm::mat4 view = glm::lookAt( glm::vec3( 1000, 500, 1000 ), glm::vec3( 0, 0, 0 ), glm::vec3( 0.0, 1.0, 0.0) );
+	// glm::mat4 view = glm::lookAt( glm::vec3( 400, 400, 200 ), glm::vec3( 0, 0, 0 ), glm::vec3( 0.0, 0.0, 1.0) );
+	glm::mat4 view = glm::lookAt( glm::vec3( 400, 0, 0 ), glm::vec3( 0, 0, 0 ), glm::vec3( 0.0, 1.0, 0.0) );
 	glm::mat4 model = glm::mat4( 1.0f );
 	// glm::mat4 proj = glm::perspective( glm::radians( 30.0f ), static_cast< float >( VIEW_WINDOW_WIDTH ) / VIEW_WINDOW_HEIGHT, 0.1f, 10000.0f );
 	// glm::mat4 view = glm::lookAt( glm::vec3( 0.5, 0.2, 0.5 ), glm::vec3( 0, 0, 0 ), glm::vec3( 0.0, 1.0, 0.0) );
 	// glm::mat4 model = glm::mat4( 1.0f );
 
-	// ÉçÅ[É|ÉäâÊëúÇÃÉçÅ[Éh
+	// „É≠„Éº„Éù„É™ÁîªÂÉè„ÅÆ„É≠„Éº„Éâ
 	std::vector< float > point;
 	std::vector< unsigned int > index;
 	std::tie( point, index ) = load_ply( filename );
-	// ÉnÉCÉåÉ]âÊëúÇÃÉçÅ[Éh
+	std::cout << filename << "„Çí„É≠„Éº„Éâ„Åó„Åæ„Åó„Åü" << std::endl;
+	// „Éè„Ç§„É¨„ÇæÁîªÂÉè„ÅÆ„É≠„Éº„Éâ
 	std::vector< float > hires_point;
 	std::vector< unsigned int > hires_index;
 	std::tie( hires_point, hires_index ) = load_ply( filename_hires );
-	
-	// ä»íPÇ»ÉfÅ[É^ÇÃèoóÕ
-	std::cout << "ÉNÉâÉXÉ^ê›íuì_ÇÃêîÅF"  << point.size() / 3 << std::endl;
-	std::cout << "ÉnÉCÉåÉ]âÊëúÇÃì_ÇÃêîÅF" << hires_point.size() / 3 << std::endl;
-	std::cout << "ÉnÉCÉåÉ]âÊëúÇÃñ ÇÃêîÅF" << hires_index.size() / 3 << std::endl;
-	
-	// ÉNÉâÉXÉ^ÇÃåvéZ
-	std::cout << "ÉNÉâÉXÉ^åvéZäJénÅcÅc" << std::endl;
-	std::vector< unsigned int > num = make_claster( static_cast< unsigned int >( point.size() / 3 ), MAX_CLUSTER_NUM, index );
-	// ÉNÉâÉXÉ^ÉfÅ[É^èoóÕ
-	{
-		auto const now = std::chrono::system_clock::now();
-		auto const d = now.time_since_epoch();
-		auto const d_s = std::chrono::duration_cast< std::chrono::seconds >( d );
-		std::ofstream ofs( filename + std::to_string( MAX_CLUSTER_NUM ) + "." + std::to_string( d_s.count() ) + ".clu" );
-		for( auto i = 0u; i < std::size( num ); ++i )
-		{
-			ofs << num[ i ] << std::endl;
-		}
-		ofs.flush();
-	}
-	std::cout << "ÉNÉâÉXÉ^åvéZäÆóπ" << std::endl;
+	std::cout << filename_hires << "„Çí„É≠„Éº„Éâ„Åó„Åæ„Åó„Åü" << std::endl;
 
-	// ÉnÉCÉåÉ]ÉfÅ[É^ÇÃuvç¿ïWÇéÊìæ
+	/*
+	{
+		constexpr auto scale = 0.3982f;
+		auto conv_point = [ scale ]( float &x, float &y, float &z ) noexcept
+		{
+			std::tie( y, z ) = std::make_tuple( -z, y );
+			x *= scale, y *= scale, z *= scale;
+		};
+		apply( point, conv_point );
+		apply( hires_point, conv_point );
+		auto cog = calc_cog( hires_point );
+		set_origin( cog, point );
+		set_origin( cog, hires_point );
+		auto min_z = std::numeric_limits< float >::max();
+		apply( hires_point, [ & ]( float &x, float &y, float &z ){ min_z = std::min( z, min_z ); } );
+		apply( point, [ & ]( float &x, float &y, float &z ){ z -= min_z; });
+		apply( hires_point, [ & ]( float &x, float &y, float &z ){ z -= min_z; });
+	}
+	// */
+
+	/*
+	write_ply( "Lau_hires_normalized.ply", hires_point, hires_index );
+	std::exit( 0 );
+	*/
+
+	// Á∞°Âçò„Å™„Éá„Éº„Çø„ÅÆÂá∫Âäõ
+	std::cout << "„ÇØ„É©„Çπ„ÇøË®≠ÁΩÆÁÇπ„ÅÆÊï∞Ôºö"  << point.size() / 3 << std::endl;
+	std::cout << "„ÇØ„É©„Çπ„ÇøÁî®CG„ÅÆÈù¢„ÅÆÊï∞Ôºö" << index.size() / 3 << std::endl;
+	std::cout << "„Éè„Ç§„É¨„ÇæÁîªÂÉè„ÅÆÁÇπ„ÅÆÊï∞Ôºö" << hires_point.size() / 3 << std::endl;
+	std::cout << "„Éè„Ç§„É¨„ÇæÁîªÂÉè„ÅÆÈù¢„ÅÆÊï∞Ôºö" << hires_index.size() / 3 << std::endl;
+	
+	// „ÇØ„É©„Çπ„Çø„ÅÆË®àÁÆó
+	std::cout << "„ÇØ„É©„Çπ„Çø„Éá„Éº„Çø„É≠„Éº„ÉâÈñãÂßã‚Ä¶‚Ä¶" << std::endl;
+	std::vector< unsigned int > num;
+	try
+	{
+		num = load_num( filename_num );
+		std::cout << "„ÇØ„É©„Çπ„Çø„Éá„Éº„Çø„É≠„Éº„ÉâÁµÇ‰∫Ü‚Ä¶‚Ä¶" << std::endl;
+	}
+	catch( ... )
+	{
+		std::cout << "„ÇØ„É©„Çπ„Çø„Éá„Éº„Çø„É≠„Éº„ÉâÂ§±Êïó" << std::endl;
+		std::cout << "„ÇØ„É©„Çπ„ÇøË®àÁÆóÈñãÂßã‚Ä¶‚Ä¶" << std::endl;
+		num = make_claster( static_cast< unsigned int >( point.size() / 3 ), MAX_CLUSTER_NUM, index );
+		// „ÇØ„É©„Çπ„Çø„Éá„Éº„ÇøÂá∫Âäõ
+		{
+			auto const now = std::chrono::system_clock::now();
+			auto const d = now.time_since_epoch();
+			auto const d_s = std::chrono::duration_cast< std::chrono::seconds >( d );
+			auto const wfnn = filename + "." + std::to_string( MAX_CLUSTER_NUM ) + "." + std::to_string( d_s.count() ) + ".clu";
+			write_num( wfnn, num );
+		}
+		std::cout << "„ÇØ„É©„Çπ„ÇøË®àÁÆóÁµÇ‰∫Ü" << std::endl;
+	}
+	std::cout << "„ÇØ„É©„Çπ„ÇøÁÇπÊï∞Ôºö" << num.size() << std::endl;
+
+	// „Éè„Ç§„É¨„Çæ„Éá„Éº„Çø„ÅÆuvÂ∫ßÊ®ô„ÇíÂèñÂæó
 	std::vector< unsigned int > hires_nearest_point_index;
 	std::vector< float > hires_uv;
-	std::cout << "uvç¿ïWåvéZäJénÅcÅc" << std::endl;
+	std::cout << "uvÂ∫ßÊ®ôË®àÁÆóÈñãÂßã‚Ä¶‚Ä¶" << std::endl;
 	std::tie( hires_nearest_point_index, hires_uv ) = calc_high_resolution_object_uv( point, index, hires_point, hires_index );
-	std::cout << "uvç¿ïWåvéZäÆóπ" << std::endl;
+	std::cout << "uvÂ∫ßÊ®ôË®àÁÆóÂÆå‰∫Ü" << std::endl;
 
 	auto const triangle_num = hires_index.size() / 3;
 
-	// èdêSÇ™å¥ì_ÇÃà íuÇ…Ç»ÇÈÇÊÇ§Ç…í≤êÆ
-	set_cog_to_origin( hires_point );
 	/*
 	std::vector< float > d_point;
 	std::vector< std::vector< unsigned int > > d_index;
@@ -199,21 +290,30 @@ int main( int argc, char **argv )
 	for( auto &&v : d_uv ) for( auto &&u : v ) u = (u + 15) / 30;
 	*/
 	// for( auto &uv : hires_uv ) uv = (uv + 0.005f) / 0.01f;
-	// for( auto &uv : hires_uv ) uv = (uv + 15) / 30;
+	for( auto &uv : hires_uv ) uv = (uv + 15) / 30;
 	// for( auto &uv : hires_uv ) uv = uv / 100.0f + 0.5f;
-	for( auto &uv : hires_uv ) uv = uv / 30.0f + 0.5f;
+	// for( auto &uv : hires_uv ) uv = uv / 30.0f + 0.5f;
+	// for( auto &uv : hires_uv ) uv = uv * 150.0f + 0.5f;
+	// for( auto &uv : hires_uv ) uv = uv * 80.0f + 0.5f;
 
 	auto ply_texture = make_high_resolution_object_texture_and_uv_for_ply( TEXTURE_WIDTH_HEIGHT, 0.2f, 0.6f, num, hires_nearest_point_index, hires_uv );
 	kato::writeBMP( "ply.bmp", std::get< 0 >( ply_texture ), std::get< 1 >( ply_texture ), &std::get< 3 >( ply_texture )[ 0 ]);
 
-	std::cout << "plyèoóÕäJénÅcÅc" << std::endl;
+	std::cout << "plyÂá∫ÂäõÈñãÂßã‚Ä¶‚Ä¶" << std::endl;
 	write_ply_with_texture( "ply.ply", "ply.bmp", hires_point, hires_index, std::get< 2 >( ply_texture ) );
-	std::cout << "plyèoóÕäÆóπ" << std::endl;
+	std::cout << "plyÂá∫ÂäõÂÆå‰∫Ü" << std::endl;
 
 	//TODO: 
-	// std::exit( 0 );
+	std::exit( 0 );
 
-	// ÉeÉNÉXÉ`ÉÉÉfÅ[É^ê∂ê¨
+	// Ë°®Á§∫„ÅÆ„Åü„ÇÅ„Å´ÈáçÂøÉ„ÅåÂéüÁÇπ„ÅÆ‰ΩçÁΩÆ„Å´„Å™„Çã„Çà„ÅÜ„Å´Ë™øÊï¥
+	set_cog_to_origin( hires_point );
+	for( auto &v : hires_point )
+	{
+		v *= 1200;
+	}
+
+	// „ÉÜ„ÇØ„Çπ„ÉÅ„É£„Éá„Éº„ÇøÁîüÊàê
 	std::vector< std::vector< std::uint8_t > > texture_data;
 	for( unsigned int i = 0u; i <= MAX_CLUSTER_NUM; ++i )
 	{
@@ -223,9 +323,7 @@ int main( int argc, char **argv )
 		kato::writeBMP( oss.str().c_str(), TEXTURE_WIDTH_HEIGHT, TEXTURE_WIDTH_HEIGHT, &texture_data.back()[ 0 ] );
 	}
 
-
-#if 1
-	// êVÇµÇ≠Ç©Ç¢ÇΩÇ±Å[Ç«
+	// Êñ∞„Åó„Åè„Åã„ÅÑ„Åü„Åì„Éº„Å©
 	glfwInit();
 	auto window = glfwCreateWindow( VIEW_WINDOW_WIDTH, VIEW_WINDOW_HEIGHT, "OK", nullptr, nullptr );
 	glfwMakeContextCurrent( window );
@@ -307,7 +405,6 @@ int main( int argc, char **argv )
 			else
 			{
 				dotnum = num[ hires_nearest_point_index[ i ] ];
-				// dotnum = 5;
 			}
 			glBindTexture( GL_TEXTURE_2D, dot_texture[ dotnum ] );
 			glDrawArrays( GL_TRIANGLES, 0, 3 );
@@ -331,129 +428,10 @@ int main( int argc, char **argv )
 		glfwPollEvents();
 	}
 	glfwTerminate();
-#else
-	glfwInit();
-	auto window = glfwCreateWindow( VIEW_WINDOW_WIDTH, VIEW_WINDOW_HEIGHT, "OK", nullptr, nullptr );
-	glfwMakeContextCurrent( window );
-	glewExperimental = true;
-	glewInit();
-
-	glViewport( 0, 0, VIEW_WINDOW_WIDTH, VIEW_WINDOW_HEIGHT );
-
-	auto program = compile_shader( vertex_shader_dual_src, fragment_shader_dual_src );
-	auto program2 = compile_shader( vertex_shader_dual_src2, fragment_shader_dual_src2 );
-
-	glEnable( GL_DEPTH_TEST );
-
-	std::vector< std::vector< float > > d_subpoint;
-	for( auto &&v : d_index )
-	{
-		std::vector< float > subpoint;
-		for( auto &&idx : v )
-		{
-			auto const i = idx * 3;
-			auto const d_point_i_it = d_point.begin() + i;
-			subpoint.insert( subpoint.end(), d_point_i_it, d_point_i_it + 3 );
-		}
-		d_subpoint.emplace_back( std::move( subpoint ) );
-	}
-	std::vector< GLuint > point_buffer, index_buffer, uv_buffer;
-	for( auto &&v : d_subpoint )
-	{
-		point_buffer.emplace_back( make_gl_buffer( GL_ARRAY_BUFFER, GL_STATIC_DRAW, v ) );
-	}
-	for( auto &&v : d_uv )
-	{
-		uv_buffer.emplace_back( make_gl_buffer( GL_ARRAY_BUFFER, GL_STATIC_DRAW, v ) );
-	}
-	glPixelStorei( GL_UNPACK_ALIGNMENT, 1 );
-	std::vector< GLuint > dot_texture;
-	for( auto i = 1u; i <= MAX_CLUSTER_NUM; ++i )
-	{
-		dot_texture.emplace_back( make_gl_texture_2d( GL_RGB, TEXTURE_WIDTH_HEIGHT, TEXTURE_WIDTH_HEIGHT, GL_RGB, GL_UNSIGNED_BYTE, &texture_data[ i - 1 ][ 0 ] ) );
-	}
-	for( auto &&v : dot_texture )
-	{
-		glBindTexture( GL_TEXTURE_2D, v );
-		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP );
-		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP );
-	}
-
-	while( true )
-	{
-		if( glfwWindowShouldClose( window ) )
-		{
-			break;
-		}
-		
-		glfwMakeContextCurrent( window );
-		glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-
-		static unsigned int i = 0;
-		glm::mat4 model = glm::rotate( glm::radians( static_cast< float >( i++ ) * 3 ), glm::vec3( 0.0, 1.0, 0.0 ) );
-		glm::mat4 mvp = proj * view * model;
-		glUseProgram( program );
-		glUniformMatrix4fv( glGetUniformLocation( program, "Hmat" ), 1, GL_FALSE, &mvp[ 0 ][ 0 ] );
-
-		glUseProgram( program2 );
-		glUniformMatrix4fv( glGetUniformLocation( program2, "Hmat" ), 1, GL_FALSE, &mvp[ 0 ][ 0 ] );
-
-		glEnableClientState( GL_VERTEX_ARRAY );
-
-		///*
-		glUseProgram( program );
-		for( auto i = 0u; i < d_index.size(); ++i )
-		{
-			if( !d_index[ i ].empty() )
-			{
-				glEnableVertexAttribArray( 0 );
-				glBindBuffer( GL_ARRAY_BUFFER, point_buffer[ i ] );
-				glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, reinterpret_cast< void * >( 0 ) );
-				glEnableVertexAttribArray( 1 );
-				glBindBuffer( GL_ARRAY_BUFFER, uv_buffer[ i ] );
-				glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, 0, reinterpret_cast< void * >( 0 ) );
-				glActiveTexture( GL_TEXTURE0 );
-				glBindTexture( GL_TEXTURE_2D, dot_texture[ num[ i ] - 1 ] );
-				glDrawArrays( GL_TRIANGLE_FAN, 1, static_cast< GLsizei >( std::size( d_subpoint[ i ] ) / 3 ) - 1 ); // âΩåÃ 1 Ç™ïKóvÇ»ÇÃÇ©Ç™ï™Ç©ÇÁÇÒ
-			}
-		}
-		//*/
-		/*
-		glUseProgram( program2 );
-		for( auto i = 0u; i < d_index.size(); ++i )
-		{
-			if( !d_index[ i ].empty() )
-			{
-				glEnableVertexAttribArray( 0 );
-				glBindBuffer( GL_ARRAY_BUFFER, point_buffer[ i ] );
-				glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, reinterpret_cast< void * >( 0 ) );
-				glEnableVertexAttribArray( 1 );
-				glBindBuffer( GL_ARRAY_BUFFER, uv_buffer[ i ] );
-				glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, 0, reinterpret_cast< void * >( 0 ) );
-				glDrawArrays( GL_LINE_STRIP, 1, static_cast< GLsizei >( std::size( d_subpoint[ i ] ) / 3 ) - 1 );
-			}
-		}
-		//*/
-
-		glDisableClientState( GL_VERTEX_ARRAY );
-		glDisableVertexAttribArray(0);
-		glDisableVertexAttribArray(1);
-		glFlush();
-		glfwSwapBuffers( window );
-
-		if( 2 <= i && i <= 121 )
-		{
-			auto ptr = std::make_unique< std::uint8_t[] >( VIEW_WINDOW_WIDTH * VIEW_WINDOW_HEIGHT * 3 );
-			glReadPixels( 0, 0, VIEW_WINDOW_WIDTH, VIEW_WINDOW_HEIGHT, GL_RGB, GL_UNSIGNED_BYTE, ptr.get() );
-			std::ostringstream oss;
-			oss << "img" << std::setw( 3 ) << std::setfill( '0' ) << i - 1 << ".bmp";
-			kato::writeBMP( oss.str().c_str(), VIEW_WINDOW_WIDTH, VIEW_WINDOW_HEIGHT, ptr.get() );
-		}
-
-		glfwPollEvents();
-	}
-	glfwTerminate();
-#endif
+}
+catch( std::exception &exp )
+{
+	std::cerr << exp.what() << std::endl;
+	char c;
+	std::cin >> c;
 }

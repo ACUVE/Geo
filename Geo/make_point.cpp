@@ -1,4 +1,4 @@
-#include <array>
+ï»¿#include <array>
 #include <atomic>
 #include <unordered_map>
 #include <unordered_set>
@@ -20,47 +20,8 @@
 #include "make_point.hpp"
 #include "vector.hpp"
 
-template< typename INT >
-static
-constexpr
-INT rol3( INT val ){
-	static_assert( std::is_unsigned<INT>::value, "Rotate Left only makes sense for unsigned types" );
-	return (val << 3) | (val >> (sizeof( INT ) * CHAR_BIT - 3));
-}
-
 using Vector = kato::vectorf;
 
-
-namespace std
-{
-	template<>
-	struct hash< std::tuple< unsigned int, unsigned int > >
-	{
-		typedef std::tuple< unsigned int, unsigned int > argument_type;
-		typedef std::size_t result_type;
-		result_type operator()(argument_type const &s) const
-		{
-			result_type const h1 = std::hash< unsigned int >{}( std::get< 0 >( s ) );
-			result_type const h2 = std::hash< unsigned int >{}( std::get< 1 >( s ) );
-			return h1 ^ (h2 << 1); // or use boost::hash_combine
-		}
-	};
-	template<>
-	struct hash< std::vector< unsigned int > >
-	{
-		typedef std::vector< unsigned int > argument_type;
-		typedef std::size_t result_type;
-		result_type operator()( argument_type const &v) const
-		{
-			result_type h = 0u;
-			for( auto &&i : v )
-			{
-				h = rol3( h ) | i;
-			}
-			return h;
-		}
-	};
-}
 
 template< typename T >
 constexpr
@@ -86,7 +47,7 @@ auto thread_num()
 #if _DEBUG
 	return 1u;
 #else
-	static std::atomic< unsigned int > num = 0;
+	static std::atomic< unsigned int > num{ 0 };
 	unsigned int ret = num.load();
 	if( ret == 0 )
 	{
@@ -99,11 +60,9 @@ auto thread_num()
 #endif
 }
 
-// ƒ|ƒŠƒSƒ“‚Ì2“_‚Ìp_index‚©‚çc‚è‚Ì1“_‚Ìp_index‚ğˆø‚­
-static
-std::unordered_map< std::tuple< unsigned int, unsigned int >, unsigned int > make_vmap( std::vector< unsigned int > const &index )
+cunordered_map< std::tuple< unsigned int, unsigned int >, unsigned int > make_vmap( std::vector< unsigned int > const &index )
 {
-	std::unordered_map< std::tuple< unsigned int, unsigned int >, unsigned int > vmap;
+	cunordered_map< std::tuple< unsigned int, unsigned int >, unsigned int > vmap;
 	for( auto i = 0u; i + 2 < std::size( index ); i += 3 )
 	{
 		auto const ii0 = index[ i + 0 ], ii1 = index[ i + 1 ], ii2 = index[ i + 2 ];
@@ -113,11 +72,9 @@ std::unordered_map< std::tuple< unsigned int, unsigned int >, unsigned int > mak
 	}
 	return std::move( vmap );
 }
-// ƒ|ƒŠƒSƒ“‚Ì2“_‚Ìp_index‚©‚ç‚»‚ê©g‚Ìindex‚Ì‚ğˆø‚­
-static
-std::unordered_map< std::tuple< unsigned int, unsigned int >, unsigned int > make_map_pindex_to_index( std::vector< unsigned int > const &index )
+cunordered_map< std::tuple< unsigned int, unsigned int >, unsigned int > make_map_pindex_to_index( std::vector< unsigned int > const &index )
 {
-	std::unordered_map< std::tuple< unsigned int, unsigned int >, unsigned int > map;
+	cunordered_map< std::tuple< unsigned int, unsigned int >, unsigned int > map;
 	for( auto i = 0u; i + 2 < std::size( index ); i += 3 )
 	{
 		auto const ii0 = index[ i + 0 ], ii1 = index[ i + 1 ], ii2 = index[ i + 2 ];
@@ -128,17 +85,17 @@ std::unordered_map< std::tuple< unsigned int, unsigned int >, unsigned int > mak
 	return std::move( map );
 }
 
-// Ql•¶Œ£: http://atali.jp/blog/2014/08/geodesicdome/
+// å‚è€ƒæ–‡çŒ®: http://atali.jp/blog/2014/08/geodesicdome/
 
-// ³20–Ê‘Ì‚ÌŠî–{î•ñF
-//   –ÊF20–ÊC•Ó30–{C’¸“_12ŒÂ
+// æ­£20é¢ä½“ã®åŸºæœ¬æƒ…å ±ï¼š
+//   é¢ï¼š20é¢ï¼Œè¾º30æœ¬ï¼Œé ‚ç‚¹12å€‹
 
-// ‰~ü—¦
+// å††å‘¨ç‡
 constexpr float PI = 3.14159265358979f;
-// ‰©‹à”ä
+// é»„é‡‘æ¯”
 constexpr float GR = (1 + const_sqrt( 5.0f )) / 2;
 
-// ³20–Ê‘Ì‚ÌÀ•W
+// æ­£20é¢ä½“ã®åº§æ¨™
 constexpr float regular_icosahedron_point[ 12 * 3 ] = 
 {
 	+1.0f,   +GR,  0.0f,
@@ -205,10 +162,10 @@ std::tuple< std::vector< float >, std::vector< unsigned int > > make_geodesic_do
 }
 
 // Pentakis Dodecahedron
-// QlF http://dmccooey.com/polyhedra/PentakisDodecahedron.txt
-// QlF http://dmccooey.com/polyhedra/PentakisDodecahedron.html
-// [5]-Vertex Radius (12): 9*sqrt(65+22*sqrt(5))/38 ~ 2.53092686862706152146
-// [6]-Vertex Radius (20): 3*sqrt(3)/2              ~ 2.5980762113533159403
+// å‚è€ƒï¼š http://dmccooey.com/polyhedra/PentakisDodecahedron.txt
+// å‚è€ƒï¼š http://dmccooey.com/polyhedra/PentakisDodecahedron.html
+// [5]-Vertex Radius (12): 9*sqrt(65+22*sqrt(5))/38 â€¾ 2.53092686862706152146
+// [6]-Vertex Radius (20): 3*sqrt(3)/2              â€¾ 2.5980762113533159403
 
 constexpr float C0 = 3 * (const_sqrt( 5.0f ) - 1) / 4;
 constexpr float C1 = 9 * (9 + const_sqrt( 5.0f )) / 76;
@@ -335,13 +292,13 @@ std::tuple< std::vector< float >, std::vector< unsigned int > > make_regular_pen
 	return std::make_tuple( std::move( f ), std::move( i ) );
 }
 
-// point‚Ì’†g‚Í”¼Œa1‚Ì‹…–Êã‚Ì“_‚ÉŒÀ‚é
+// pointã®ä¸­èº«ã¯åŠå¾„1ã®çƒé¢ä¸Šã®ç‚¹ã«é™ã‚‹
 void partition_polygon_on_ball( unsigned int const level, std::vector< float > &point, std::vector< unsigned int > &index )
 {
 	if( level <= 0 ) return;
 	using Index_Type = std::decay_t< decltype( index[ 0 ] ) >;
 	using Coord_Type = std::decay_t< decltype( point[ 0 ] ) >;
-	std::unordered_map< std::tuple< Index_Type, Index_Type >, Index_Type > partmap;
+	cunordered_map< std::tuple< Index_Type, Index_Type >, Index_Type > partmap;
 	std::vector< Index_Type > retindex;
 	auto get_great_circle_func = [ & ]( Index_Type const from, Index_Type const to )
 	{
@@ -354,7 +311,7 @@ void partition_polygon_on_ball( unsigned int const level, std::vector< float > &
 		auto const v1tov2rad = std::acos( dot );
 		return [ from_point_index, v3, v1tov2rad, &point ]( Coord_Type const ratio )
 		{
-			// point‚Ì’†g‚Ìƒƒ‚ƒŠã‚ÌˆÊ’u‚ªˆÚ“®‚·‚é‚Ì‚Å from_point_index ‚ÅˆÊ’u‚ğ•Û
+			// pointã®ä¸­èº«ã®ãƒ¡ãƒ¢ãƒªä¸Šã®ä½ç½®ãŒç§»å‹•ã™ã‚‹ã®ã§ from_point_index ã§ä½ç½®ã‚’ä¿æŒ
 			auto const * const v1 = &point[ from_point_index ];
 			auto const theta = v1tov2rad * ratio;
 			auto const thetasin = std::sin( theta ), thetacos = std::cos( theta );
@@ -476,7 +433,7 @@ void euclidean_to_theta_phi_of_poler_for_draw( std::vector< float > const &point
 		auto const dmaxmid = maxp[ 0 ] - midp[ 0 ], dmidmin = midp[ 0 ] - minp[ 0 ];
 		if( dmaxmid > dmidmin  )
 		{
-			// min‚Ì•û‚ªmid‚É‹ß‚¢
+			// minã®æ–¹ãŒmidã«è¿‘ã„
 			for( auto j = 0u; j < 3; ++j )
 			{
 				auto const idx = poler_index[ i + j ];
@@ -493,7 +450,7 @@ void euclidean_to_theta_phi_of_poler_for_draw( std::vector< float > const &point
 		}
 		else
 		{
-			// max‚Ì•û‚ªmid‚É‹ß‚¢
+			// maxã®æ–¹ãŒmidã«è¿‘ã„
 			for( auto j = 0u; j < 3; ++j )
 			{
 				auto const idx = poler_index[ i + j ];
@@ -521,12 +478,12 @@ std::tuple< std::vector< float >, std::vector< unsigned int > > euclidean_to_the
 	return std::make_tuple( std::move( f ), std::move( u ) );
 }
 
-// ƒƒ‚ƒŠ‚ğH‚¤•³ƒ\[ƒX
+// ãƒ¡ãƒ¢ãƒªã‚’é£Ÿã†ç³ã‚½ãƒ¼ã‚¹
 static
-std::vector< unsigned int >  make_claster_impl( unsigned int const point_num, unsigned int const max_num, unsigned int const sep_num, std::vector< unsigned int > const &index, std::vector< std::vector< unsigned int > > const &map, std::atomic< bool > &flag )
+std::vector< unsigned int > make_claster_impl( unsigned int const point_num, unsigned int const max_num, unsigned int const sep_num, std::vector< unsigned int > const &index, std::vector< std::vector< unsigned int > > const &map, std::atomic< bool > &flag )
 {
 #if 0
-	// •—Dæ’Tõ‚Å‚â‚è‚½‚©‚Á‚½DÀ‘•“r’†iHj
+	// å¹…å„ªå…ˆæ¢ç´¢ã§ã‚„ã‚ŠãŸã‹ã£ãŸï¼å®Ÿè£…é€”ä¸­ï¼ˆï¼Ÿï¼‰
 	constexpr unsigned int UMAX = std::numeric_limits< unsigned int >::max();
 	std::vector< unsigned int > ret_num( point_num, UMAX );
 	std::vector< unsigned int > tmp( sep_num );
@@ -550,7 +507,7 @@ std::vector< unsigned int >  make_claster_impl( unsigned int const point_num, un
 
 	std::vector< unsigned int > ret_num( point_num );
 	std::vector< unsigned int > tmp( sep_num );
-	std::unordered_set< std::vector< unsigned int > > set;
+	cunordered_set< std::vector< unsigned int > > set;
 	while( !flag )
 	{
 		bool gen_ok = true;
@@ -576,7 +533,7 @@ std::vector< unsigned int >  make_claster_impl( unsigned int const point_num, un
 		set.clear();
 		for( auto i = 0u; i + sep_num - 1 < index.size(); i += sep_num )
 		{
-			for( auto j = 0u; j < sep_num; ++j) tmp[ j ] = ret_num[ index[ i + j ] ];
+			for( auto j = 0u; j < sep_num; ++j ) tmp[ j ] = ret_num[ index[ i + j ] ];
 			auto it = set.find( tmp );
 			if( it != set.end() )
 			{
@@ -613,11 +570,11 @@ void make_claster( unsigned int const point_num, unsigned int const max_num, std
 		addmapbi( index[ i + 2 ], index[ i + 0 ] );
 	}
 
-	std::unordered_map< std::tuple< unsigned int, unsigned int >, unsigned int > vmap = make_vmap( index );
+	auto const vmap = make_vmap( index );
 	unsigned int argsepnum;
 	std::vector< unsigned int > argindex;
 
-	// ‚³‚ñ‚©‚Á‚¯[
+	// ã•ã‚“ã‹ã£ã‘ãƒ¼
 	/*
 	{
 		argsepnum = 3;
@@ -630,7 +587,7 @@ void make_claster( unsigned int const point_num, unsigned int const max_num, std
 	}
 	// */
 
-	// ‚Ù‚µ‚¢‚â‚Â
+	// ã»ã—ã„ã‚„ã¤
 	/*
 	{
 		argsepnum = 4;
@@ -645,14 +602,20 @@ void make_claster( unsigned int const point_num, unsigned int const max_num, std
 	}
 	// */
 
-	// ‚Ù‚µ‚¢‚â‚Â‚»‚Ì‚Q
+	// ã»ã—ã„ã‚„ã¤ãã®ï¼’
 	// /*
 	{
 		argsepnum = 6;
 		for( auto i = 0u; i + 2 < index.size(); i += 3 )
 		{
 			auto const a = index[ i + 0 ], b = index[ i + 1 ], c = index[ i + 2 ];
-			auto const u = vmap[ std::make_tuple( b, a ) ], v = vmap[ std::make_tuple( c, b ) ], w = vmap[ std::make_tuple( a, c ) ];
+			auto const u_it = vmap.find( std::make_tuple( b, a ) );
+			auto const v_it = vmap.find( std::make_tuple( c, b ) );
+			auto const w_it = vmap.find( std::make_tuple( a, c ) );
+			if( u_it == vmap.end() || v_it == vmap.end() || w_it == vmap.end() ) continue;
+			auto const u = u_it->second, v = v_it->second, w = w_it->second;
+			if( u == c || v == a || w == b ) continue;	// ä¸‰è§’å½¢ãŒå®Œå…¨ã«é‡ãªã£ã¦ã„ã‚‹
+			
 			argindex.insert( argindex.end(), { a, b, c, u, v, w } );
 			argindex.insert( argindex.end(), { b, c, a, v, w, u } );
 			argindex.insert( argindex.end(), { c, a, b, w, u, v } );
@@ -660,7 +623,7 @@ void make_claster( unsigned int const point_num, unsigned int const max_num, std
 	}
 	// */
 
-	std::atomic< bool > flag = false;
+	std::atomic< bool > flag{ false };
 	std::vector< std::thread > th;
 	auto const tn = thread_num();
 	for( auto i = 0u; i < tn; ++i )
@@ -694,38 +657,38 @@ void make_texture( unsigned int const width, unsigned int const height, std::vec
 	auto const cssin = std::sin( claster_size_in_rad ), cscos = std::cos( claster_size_in_rad );
 	for( auto i = 0u, j = 0u; i < std::size( dotp ); ++i, j += 3 )
 	{
-		// ƒhƒbƒgƒNƒ‰ƒXƒ^‚ÉŠÜ‚Ü‚ê‚é“_‚Ì”
+		// ãƒ‰ãƒƒãƒˆã‚¯ãƒ©ã‚¹ã‚¿ã«å«ã¾ã‚Œã‚‹ç‚¹ã®æ•°
 		auto const numi = num[ i ];
 		if( numi == 0 ) continue;
 		auto &dotpi = dotp[ i ];
 		dotpi.resize( numi );
 		auto const r = hypot( point[ j + 0 ], point[ j + 1 ], point[ j + 2 ] );
-		// ƒhƒbƒgƒNƒ‰ƒXƒ^[‚ÌˆÊ’uƒxƒNƒgƒ‹
+		// ãƒ‰ãƒƒãƒˆã‚¯ãƒ©ã‚¹ã‚¿ãƒ¼ã®ä½ç½®ãƒ™ã‚¯ãƒˆãƒ«
 		auto const x = point[ j + 0 ] / r, y = point[ j + 1 ] / r, z = point[ j + 2 ] / r;
 		if( numi == 1 )
 		{
-			// ƒhƒbƒgƒNƒ‰ƒXƒ^[‚Ìƒhƒbƒg‚ª1‚Â‚Ìê‡
+			// ãƒ‰ãƒƒãƒˆã‚¯ãƒ©ã‚¹ã‚¿ãƒ¼ã®ãƒ‰ãƒƒãƒˆãŒ1ã¤ã®å ´åˆ
 			dotpi[ 0 ][ 0 ] = x, dotpi[ 0 ][ 1 ] = y, dotpi[ 0 ][ 2 ] = z;
 		}
 		else
 		{
-			// ƒhƒbƒgƒNƒ‰ƒXƒ^[‚Ì‹ÉÀ•W
+			// ãƒ‰ãƒƒãƒˆã‚¯ãƒ©ã‚¹ã‚¿ãƒ¼ã®æ¥µåº§æ¨™
 			// auto const theta = std::asin( z ), phi = std::atan2( y, x );
 			auto const theta = std::atan2( y, x ), phi = std::asin( z );
 			auto const theta_sin = std::sin( theta ), theta_cos = std::cos( theta );
 			auto const phi_sin = std::sin( phi ), phi_cos = std::cos( phi );
-			// ƒhƒbƒgƒNƒ‰ƒXƒ^[‚ÌˆÊ’u‚Å‰~‚ÉÚ‚µC‚©‚ÂC‚¾‚¢‚½‚¢(0,0,1)‚Ì•ûŒü‚ğŒü‚¢‚Ä‚¢‚éƒxƒNƒgƒ‹
+			// ãƒ‰ãƒƒãƒˆã‚¯ãƒ©ã‚¹ã‚¿ãƒ¼ã®ä½ç½®ã§å††ã«æ¥ã—ï¼Œã‹ã¤ï¼Œã ã„ãŸã„(0,0,1)ã®æ–¹å‘ã‚’å‘ã„ã¦ã„ã‚‹ãƒ™ã‚¯ãƒˆãƒ«
 			auto const upx = -theta_cos * phi_sin, upy = -theta_sin * phi_sin, upz = phi_cos;
-			// ã‚Ì2‚Â‚ÌƒxƒNƒgƒ‹‚É’¼Œğ‚·‚éƒxƒNƒgƒ‹
+			// ä¸Šã®2ã¤ã®ãƒ™ã‚¯ãƒˆãƒ«ã«ç›´äº¤ã™ã‚‹ãƒ™ã‚¯ãƒˆãƒ«
 			auto const hix = y * upz - z * upy, hiy = z * upx - x * upz, hiz = x * upy - y * upx;
 			Point_Type diff_gamma = 2 * PI / numi;
 			for( auto j = 0u; j < numi; ++j )
 			{
 				auto const gamma = j * diff_gamma;
 				auto const gamma_sin = std::sin( gamma ), gamma_cos = std::cos( gamma );
-				// ƒhƒbƒgƒNƒ‰ƒXƒ^[“à‚Ì1‚Â‚Ì“_‚Ì•ûŒüƒxƒNƒgƒ‹
+				// ãƒ‰ãƒƒãƒˆã‚¯ãƒ©ã‚¹ã‚¿ãƒ¼å†…ã®1ã¤ã®ç‚¹ã®æ–¹å‘ãƒ™ã‚¯ãƒˆãƒ«
 				auto const dox = gamma_cos * upx + gamma_sin * hix, doy = gamma_cos * upy + gamma_sin * hiy, doz = gamma_cos * upz + gamma_sin * hiz;
-				// ƒhƒbƒgƒNƒ‰ƒXƒ^[“à‚Ì1‚Â‚Ì“_‚ÌˆÊ’uƒxƒNƒgƒ‹
+				// ãƒ‰ãƒƒãƒˆã‚¯ãƒ©ã‚¹ã‚¿ãƒ¼å†…ã®1ã¤ã®ç‚¹ã®ä½ç½®ãƒ™ã‚¯ãƒˆãƒ«
 				auto const dx = cscos * x + cssin * dox, dy = cscos * y + cssin * doy, dz = cscos * z + cssin * doz;
 				dotpi[ j ][ 0 ] = dx, dotpi[ j ][ 1 ] = dy, dotpi[ j ][ 2 ] = dz;
 			}
@@ -816,12 +779,22 @@ void make_dual( std::vector< float > const &point, std::vector< unsigned int > c
 		auto it = f_it;
 		Dual_Index_Type r{ i, d_point_offset + pi2i[ f_it->first ] / 3 };
 		r.emplace_back( d_point_offset + pi2i[ std::make_tuple( i, f_it->second ) ] / 3 );
-		for( it = vmap.find( std::make_tuple( i, it->second ) ) ; it != f_it; it = vmap.find( std::make_tuple( i, it->second ) ) )
+		for( it = vmap.find( std::make_tuple( i, it->second ) ); it != f_it && it != vmap.end(); it = vmap.find( std::make_tuple( i, it->second ) ) )
 		{
-			if( it == vmap.end() ) break;
-			r.emplace_back( d_point_offset + pi2i[ std::make_tuple( i, it->second ) ] / 3 );
+			auto const addp = d_point_offset + pi2i[ std::make_tuple( i, it->second ) ] / 3;
+			r.emplace_back( addp );
 		}
-		if( it == vmap.end() ) continue;
+		if( it == vmap.end() )
+		{
+			continue;
+			/*
+			it = f_it;
+			for( it = vmap.find( std::make_tuple( it->second, i ) ); it != vmap.end(); it = vmap.find( std::make_tuple( it->second, i ) ) )
+			{
+				r.emplace( r.begin() + 1, d_point_offset + pi2i[ std::make_tuple( i , it->second ) ] / 3 );
+			}
+			*/
+		}
 		// if( std::size( r ) < 4 ) continue;
 		d_index[ i ] = std::move( r );
 	}
@@ -835,27 +808,46 @@ std::tuple< std::vector< float >, std::vector< std::vector< unsigned int > > > m
 }
 
 static
-Vector calc_normal_vector( std::vector< float > const &point, std::vector< unsigned int > const &index )
+Vector calc_single_dcm_cluster_normal( std::vector< float > const &dual_point, std::vector< unsigned int > const &single_dual_index )
 {
-	auto const index_size = std::size( index );
-	if( index_size == 0 ) return Vector{};
-	Vector const center( &point[ index[ 0 ] * 3 ] );
-	if( index_size == 1 ) return center;
-	Vector sum{};
-	for( auto i = 1u; i < index_size - 1; ++i )
+	auto const dual_index_size = std::size( single_dual_index );
+	if( dual_index_size == 0 ) return Vector{};
+	Vector const center( &dual_point[ single_dual_index[ 0 ] * 3 ] );
+	if( dual_index_size == 1 ) return center;
+	Vector sum( 0.0f, 0.0f, 0.0f );
+	for( auto i = 1u; i < dual_index_size - 1; ++i )
 	{
-		Vector const v1( &point[ index[ i ] * 3 ] ), v2( &point[ index[ i + 1 ] * 3 ]);
+		Vector const v1( &dual_point[ single_dual_index[ i ] * 3 ] ), v2( &dual_point[ single_dual_index[ i + 1 ] * 3 ] );
 		sum += v1.cross_product( v2 );
 	}
 	sum = sum.normarize();
 	return sum;
 }
+
+void calc_dcm_cluster_normal( std::vector< float > const &dual_point, std::vector< std::vector< unsigned int > > const &dual_index, std::vector< float > &dcm_normal )
+{
+	auto const num_of_point = std::size( dual_index );
+	dcm_normal.clear();
+	dcm_normal.reserve( num_of_point * 3 );
+	for( auto i = 0u; i < dual_index.size(); ++i )
+	{
+		auto const &nv = calc_single_dcm_cluster_normal( dual_point, dual_index[ i ] );
+		dcm_normal.insert( dcm_normal.end(), { nv.x, nv.y, nv.z } );
+	}
+}
+std::vector< float > calc_dcm_cluster_normal( std::vector< float > const &dual_point, std::vector< std::vector< unsigned int > > const &dual_index )
+{
+	std::vector< float > dcm_normal;
+	calc_dcm_cluster_normal( dual_point, dual_index, dcm_normal );
+	return std::move( dcm_normal );
+}
+
 static
 std::tuple< Vector, Vector > calc_uv_axes( Vector const normal )
 {
 	Vector const kariup( 0.0f, 0.0f, 1.0f ); // must be normarized
-	Vector const up = normal != kariup ? (kariup - normal.inner_product( kariup ) * normal).normarize() : Vector( 1.0f, 0.0f, 0.0f ); // vÀ•W²
-	Vector const right = up.cross_product( normal ); // uÀ•W²‘Š“–
+	Vector const up = normal != kariup ? (kariup - normal.inner_product( kariup ) * normal).normarize() : Vector( 1.0f, 0.0f, 0.0f ); // våº§æ¨™è»¸
+	Vector const right = up.cross_product( normal ); // uåº§æ¨™è»¸ç›¸å½“
 	return std::make_tuple( right, up );
 }
 
@@ -870,10 +862,10 @@ void calc_dual_uv( std::vector< float > const &d_point, std::vector< std::vector
 		if( !dii.empty() )
 		{
 			Vector const center( &d_point[ dii[ 0 ] * 3 ] );
-			Vector const normal = calc_normal_vector( d_point, dii );
+			Vector const normal = calc_single_dcm_cluster_normal( d_point, dii );
 			auto const uv = calc_uv_axes( normal );
 			
-			for( auto j = 0; j < std::size( dii ); ++j )
+			for( auto j = 0u; j < std::size( dii ); ++j )
 			{
 				Vector const cvec( &d_point[ dii[ j ] * 3 ] );
 				auto const vc = cvec - center;
@@ -896,21 +888,43 @@ void calc_high_resolution_object_uv( std::vector< float > const &point, std::vec
 {
 	auto const hires_index_size = std::size( hires_index );
 	auto const hires_triangle_num = hires_index_size / 3;
-	// index–ˆ‚Éuv‚ğ—^‚¦‚éipoint–ˆ‚Å‚Í‚È‚¢j
+	// indexæ¯ã«uvã‚’ä¸ãˆã‚‹ï¼ˆpointæ¯ã§ã¯ãªã„ï¼‰
 	hires_uv.resize( hires_index_size * 2 );
-	// OŠpŒ`–ˆ‚Époint‚Ìindex‚ğ—^‚¦‚éi“Á‚É‹ß‚­‚È‚¢‚Ístd::numeric_limits< unsigned int >::max()j
+	// ä¸‰è§’å½¢æ¯ã«pointã®indexã‚’ä¸ãˆã‚‹ï¼ˆç‰¹ã«è¿‘ããªã„æ™‚ã¯std::numeric_limits< unsigned int >::max()ï¼‰
 	hires_nearest_point_index.resize( hires_triangle_num );
-	// ‘o‘Î‚ğ“¾‚Ä‚¨‚­
+	// åŒå¯¾ã‚’å¾—ã¦ãŠã
 	auto dual = make_dual( point, index );
 	auto &d_point = std::get< 0 >( dual );
 	auto &d_index = std::get< 1 >( dual );
 	d_index.erase( std::remove_if( d_index.begin(), d_index.end(), []( auto const &v ){ return v.empty(); } ), d_index.end() );
 	auto const d_index_size = std::size( d_index );
-	// ‚»‚ê‚¼‚ê‚Ì“_‚É‚Â‚¢‚ÄCuvÀ•W²‚ğæ“¾
+	// ãã‚Œãã‚Œã®ç‚¹ã«ã¤ã„ã¦ï¼Œuvåº§æ¨™è»¸ã‚’å–å¾—
 	std::vector< std::tuple< Vector, Vector > > uv_axes;
+	std::vector< Vector > normal_vector;
+	normal_vector.reserve( d_index_size );
 	uv_axes.reserve( d_index_size );
-	for( auto i = 0u; i < d_index_size; ++i ) uv_axes.emplace_back( calc_uv_axes( calc_normal_vector( d_point, d_index[ i ] ) ) );
-	// hires‘¤‚Ì“_‚Ì‘S‚Ä‚É‚Â‚¢‚ÄCˆê”Ô‹ß‚¢“_‚ğŒvZ‚·‚é
+	for( auto i = 0u; i < d_index_size; ++i )
+	{
+		auto const normal = calc_single_dcm_cluster_normal( d_point, d_index[ i ] );
+		normal_vector.emplace_back( normal );
+		uv_axes.emplace_back( calc_uv_axes( normal ) );
+	}
+
+	///
+	// hiresã®æ³•ç·šãƒ™ã‚¯ãƒˆãƒ«ã‚’è¨ˆç®—
+	auto hires_dual = make_dual( hires_point, hires_index );
+	auto &d_hires_point = std::get< 0 >( hires_dual );
+	auto &d_hires_index = std::get< 1 >( hires_dual );
+	std::vector< Vector > hires_normal_vector;
+	hires_normal_vector.reserve( hires_point.size() / 3 * 3 );
+	for( auto i = 0u; i < d_hires_index.size(); ++i )
+	{
+		Vector const ret = calc_single_dcm_cluster_normal( d_hires_point, d_hires_index[ i ] );
+		hires_normal_vector.emplace_back( ret );
+	}
+	///
+
+	// hireså´ã®ç‚¹ã®å…¨ã¦ã«ã¤ã„ã¦ï¼Œä¸€ç•ªè¿‘ã„ç‚¹ã‚’è¨ˆç®—ã™ã‚‹
 	auto const hires_point_num = std::size( hires_point ) / 3;
 	constexpr auto NONE_INDEX = std::numeric_limits< unsigned int >::max();
 	std::vector< unsigned int > nearest_point_d_index_index( hires_point_num, NONE_INDEX );
@@ -920,6 +934,7 @@ void calc_high_resolution_object_uv( std::vector< float > const &point, std::vec
 		Vector const hp( &hires_point[ i * 3 ] );
 		for( auto j = 0u; j < d_index_size; ++j )
 		{
+			if( hires_normal_vector[ i ].inner_product( normal_vector[ j ] ) < 0 ) continue;
 			Vector const p( &d_point[ d_index[ j ][ 0 ] * 3 ] );
 			auto const distance = (p - hp).length();
 			if( distance < min_distance )
@@ -929,7 +944,7 @@ void calc_high_resolution_object_uv( std::vector< float > const &point, std::vec
 			}
 		}
 	}
-	// ‚»‚ê‚¼‚ê‚Ì“_‚ÅUVŒvZ
+	// ãã‚Œãã‚Œã®ç‚¹ã§UVè¨ˆç®—
 	for( auto i = 0u; i < hires_triangle_num; ++i )
 	{
 		auto const fi = i * 3;
@@ -1033,14 +1048,14 @@ make_high_resolution_object_texture_and_uv_for_ply(
 )
 {
 	assert( hires_nearest_point_index.size() * 6 == hires_uv.size() );
-	// ƒeƒNƒXƒ`ƒƒ¶¬
+	// ãƒ†ã‚¯ã‚¹ãƒãƒ£ç”Ÿæˆ
 	auto const numminmax = std::minmax_element( num.begin(), num.end() );
 	auto const nummin = *std::get< 0 >( numminmax ), nummax = *std::get< 1 >( numminmax );
 	auto const nonzero = nummin != 0;
 	auto const c = nummax - nummin + 1 + nonzero;
 	// auto const cluster_margin_size = (cluster_size + 1) / 2;
 	auto const cluster_margin_size = cluster_size * 1;
-	// w * h * 3 ‚ªƒI[ƒo[ƒtƒ[‚·‚é‚±‚Æ‚ª‚ ‚é‚Ì‚ÅCstd::size_t
+	// w * h * 3 ãŒã‚ªãƒ¼ãƒãƒ¼ãƒ•ãƒ­ãƒ¼ã™ã‚‹ã“ã¨ãŒã‚ã‚‹ã®ã§ï¼Œstd::size_t
 	std::size_t const w = width = (cluster_size + cluster_margin_size) * c + cluster_margin_size;
 	std::size_t const h = height = cluster_size + cluster_margin_size * 2;
 	texture.clear();
@@ -1056,7 +1071,7 @@ make_high_resolution_object_texture_and_uv_for_ply(
 		make_cluster_texture_sub_vector( static_cast< unsigned int >( w ), cluster_size, cluster_size, i, key_point_size, r, &texture[ (left_offset + cluster_margin_size * w) * 3 ] );
 		left_offset += cluster_margin_size + cluster_size;
 	}
-	// UVÀ•WŒvZ
+	// UVåº§æ¨™è¨ˆç®—
 	auto const hires_triangle_num = std::size( hires_nearest_point_index );
 	auto const cluster_size_plus_cluster_margin_size = cluster_size + cluster_margin_size;
 	texture_uv.resize( std::size( hires_uv ) );
@@ -1079,7 +1094,7 @@ make_high_resolution_object_texture_and_uv_for_ply(
 			for( auto j = 0u; j < 3u; ++j )
 			{
 				auto const offset = (tri_off + j) * 2;
-				texture_uv[ offset + 0 ] = static_cast< float >( (n - nummin + nonzero) * cluster_size_plus_cluster_margin_size - cluster_size ) / w + hires_uv[ offset + 0 ] * cluster_size / w;
+				texture_uv[ offset + 0 ] = static_cast< float >( (n - nummin + nonzero + 1) * cluster_size_plus_cluster_margin_size - cluster_size ) / w + hires_uv[ offset + 0 ] * cluster_size / w;
 				texture_uv[ offset + 1 ] = hires_uv[ offset + 1 ] * cluster_size / h + static_cast< float >( cluster_margin_size ) / h;
 			}
 		}
@@ -1101,3 +1116,71 @@ make_high_resolution_object_texture_and_uv_for_ply(
 	make_high_resolution_object_texture_and_uv_for_ply( cluster_size, key_point_size, r, num, hires_nearest_point_index, hires_uv, w, h, f, u );
 	return std::make_tuple( w, h, std::move( f ), std::move( u ) );
 }
+
+void make_adjacency_matrix( std::vector< unsigned int > const &index, unsigned int const max_index, std::vector< std::vector< std::uint8_t > > &am )
+{
+	for( auto &v : am ) v.clear();
+	am.resize( max_index );
+	auto add = [ & ]( unsigned int a, unsigned int b )
+	{
+		auto &ama = am[ a ];
+		auto it = std::lower_bound( ama.begin(), ama.end(), b );
+		if( it != ama.end() && *it == b ) return;
+		ama.insert( it, b );
+	};
+	auto add_op = [ & ]( unsigned int a, unsigned int b )
+	{
+		add( a, b ); add( b, a );
+	};
+	auto const index_size = std::size( index );
+	for( auto i = 0u; i + 2 < index_size; i += 3 )
+	{
+		add_op( index[ i + 0 ], index[ i + 1 ] );
+		add_op( index[ i + 1 ], index[ i + 2 ] );
+		add_op( index[ i + 2 ], index[ i + 0 ] );
+	}
+}
+std::vector< std::vector< std::uint8_t > > make_adjacency_matrix( std::vector< unsigned int > const &index, unsigned int const max_index )
+{
+	std::vector< std::vector< std::uint8_t > > am;
+	make_adjacency_matrix( index, max_index, am );
+	return std::move( am );
+}
+
+void calc_normal( std::vector< float > const &point, std::vector< unsigned int > const &index, std::vector< float > &normal )
+{
+	auto const num_of_point = std::size( point ) / 3;
+	normal.clear();
+	normal.reserve( num_of_point * 3 );
+	std::vector< bool > flag( num_of_point, false );
+	std::vector< kato::vectorf > tmp_normal( num_of_point, kato::vectorf( 0.0f, 0.0f, 0.0f ) );
+	auto const index_size = std::size( index );
+	for( auto i = 0u; i + 2 < index_size; i += 3 )
+	{
+		kato::vectorf const p1( &point[ index[ i + 0 ] * 3 ] ), p2( &point[ index[ i + 1 ] * 3 ] ), p3( &point[ index[ i + 2 ] * 3 ] );
+		auto const n = (p1 - p2).cross_product( p1 - p3 ).normarize();
+		for( auto i : { index[ i + 0 ], index[ i + 1 ], index[ i + 2 ] } )
+		{
+			flag[ i ] = true;
+			tmp_normal[ i ] += n;
+		}
+	}
+	for( auto i = 0u; i < num_of_point; ++i )
+	{
+		auto const n = flag[ i ] ? tmp_normal[ i ].normarize() : kato::vectorf( 0.0f, 0.0f, 0.0f );
+		normal.insert( normal.end(), { n.x, n.y, n.z });
+	}
+}
+std::vector< float > calc_normal( std::vector< float > const &point, std::vector< unsigned int > const &index )
+{
+	std::vector< float > normal;
+	calc_normal( point, index, normal );
+	return std::move( normal );
+}
+
+/*
+void delaunay_triangulation( std::vector< float > const &point, std::vector< unsigned int > &index, std::vector< unsigned int > * const pouttriangle )
+{
+	// TODO:
+}
+*/

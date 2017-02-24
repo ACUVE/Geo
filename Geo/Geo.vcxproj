@@ -148,13 +148,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="ply.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="make_point.cpp" />
+    <ClCompile Include="model_io.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="ply.hpp" />
     <ClInclude Include="make_point.hpp" />
+    <ClInclude Include="model_io.hpp" />
     <ClInclude Include="my_utility.hpp" />
     <ClInclude Include="shader.hpp" />
     <ClInclude Include="vector.hpp" />
