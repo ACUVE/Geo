@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.25123.0
+VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Geo", "Geo\Geo.vcxproj", "{E257D8C4-6C2B-46CD-955E-54E2BAFDEDA7}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Geo_make_maker_evaluation", "Geo_make_maker_evaluation\Geo_make_maker_evaluation.vcxproj", "{F1E3BAA6-A0DD-4617-8E72-D5480E52E4A7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,14 @@ Global
 		{E257D8C4-6C2B-46CD-955E-54E2BAFDEDA7}.Release|x64.Build.0 = Release|x64
 		{E257D8C4-6C2B-46CD-955E-54E2BAFDEDA7}.Release|x86.ActiveCfg = Release|Win32
 		{E257D8C4-6C2B-46CD-955E-54E2BAFDEDA7}.Release|x86.Build.0 = Release|Win32
+		{F1E3BAA6-A0DD-4617-8E72-D5480E52E4A7}.Debug|x64.ActiveCfg = Debug|x64
+		{F1E3BAA6-A0DD-4617-8E72-D5480E52E4A7}.Debug|x64.Build.0 = Debug|x64
+		{F1E3BAA6-A0DD-4617-8E72-D5480E52E4A7}.Debug|x86.ActiveCfg = Debug|Win32
+		{F1E3BAA6-A0DD-4617-8E72-D5480E52E4A7}.Debug|x86.Build.0 = Debug|Win32
+		{F1E3BAA6-A0DD-4617-8E72-D5480E52E4A7}.Release|x64.ActiveCfg = Release|x64
+		{F1E3BAA6-A0DD-4617-8E72-D5480E52E4A7}.Release|x64.Build.0 = Release|x64
+		{F1E3BAA6-A0DD-4617-8E72-D5480E52E4A7}.Release|x86.ActiveCfg = Release|Win32
+		{F1E3BAA6-A0DD-4617-8E72-D5480E52E4A7}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

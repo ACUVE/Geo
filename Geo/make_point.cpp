@@ -479,27 +479,8 @@ std::tuple< std::vector< float >, std::vector< unsigned int > > euclidean_to_the
 }
 
 // メモリを食う糞ソース
-static
 std::vector< unsigned int > make_claster_impl( unsigned int const point_num, unsigned int const max_num, unsigned int const sep_num, std::vector< unsigned int > const &index, std::vector< std::vector< unsigned int > > const &map, std::atomic< bool > &flag )
 {
-#if 0
-	// 幅優先探索でやりたかった．実装途中（？）
-	constexpr unsigned int UMAX = std::numeric_limits< unsigned int >::max();
-	std::vector< unsigned int > ret_num( point_num, UMAX );
-	std::vector< unsigned int > tmp( sep_num );
-	std::unordered_set< std::vector< unsigned int > > set;
-	while( !flag )
-	{
-		unsigned int oknum = 0;
-		std::queue< unsigned int > queue;
-		std::stack< unsigned int > stack;
-		while( oknum < point_num && !flag )
-		{
-			std::find()
-		}
-		
-	}
-#else
 	std::random_device rd;
 	std::mt19937_64 gen( rd() );
 	// std::uniform_int_distribution< unsigned int > dist( 1, max_num );
@@ -547,29 +528,10 @@ std::vector< unsigned int > make_claster_impl( unsigned int const point_num, uns
 		return std::move( ret_num );
 	}
 	return {};
-#endif
 }
 void make_claster( unsigned int const point_num, unsigned int const max_num, std::vector< unsigned int > const &index, std::vector< unsigned int > &num )
 {
-	std::vector< std::vector< unsigned int > > map( point_num );
-	auto addmap = [ & ]( unsigned int const a, unsigned int const b )
-	{
-		auto &ma = map[ a ];
-		auto lb = std::lower_bound( ma.begin(), ma.end(), b );
-		if( lb != ma.end() && *lb == b ) return;
-		ma.insert( lb, b );
-	};
-	auto addmapbi = [ & ]( unsigned int const a, unsigned int const b )
-	{
-		addmap( a, b ); addmap( b, a );
-	};
-	for( auto i = 0u; i + 2 < index.size(); i += 3 )
-	{
-		addmapbi( index[ i + 0 ], index[ i + 1 ] );
-		addmapbi( index[ i + 1 ], index[ i + 2 ] );
-		addmapbi( index[ i + 2 ], index[ i + 0 ] );
-	}
-
+	auto const map = make_adjacency_matrix( index, point_num );
 	auto const vmap = make_vmap( index );
 	unsigned int argsepnum;
 	std::vector< unsigned int > argindex;
@@ -1117,7 +1079,7 @@ make_high_resolution_object_texture_and_uv_for_ply(
 	return std::make_tuple( w, h, std::move( f ), std::move( u ) );
 }
 
-void make_adjacency_matrix( std::vector< unsigned int > const &index, unsigned int const max_index, std::vector< std::vector< std::uint8_t > > &am )
+void make_adjacency_matrix( std::vector< unsigned int > const &index, unsigned int const max_index, std::vector< std::vector< unsigned int > > &am )
 {
 	for( auto &v : am ) v.clear();
 	am.resize( max_index );
@@ -1140,9 +1102,9 @@ void make_adjacency_matrix( std::vector< unsigned int > const &index, unsigned i
 		add_op( index[ i + 2 ], index[ i + 0 ] );
 	}
 }
-std::vector< std::vector< std::uint8_t > > make_adjacency_matrix( std::vector< unsigned int > const &index, unsigned int const max_index )
+std::vector< std::vector< unsigned int > > make_adjacency_matrix( std::vector< unsigned int > const &index, unsigned int const max_index )
 {
-	std::vector< std::vector< std::uint8_t > > am;
+	std::vector< std::vector< unsigned int > > am;
 	make_adjacency_matrix( index, max_index, am );
 	return std::move( am );
 }

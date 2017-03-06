@@ -4,6 +4,7 @@
 #include <tuple>
 #include <memory>
 #include <unordered_map>
+#include <atomic>
 #include "custom_hash.hpp"
 
 // ポリゴンの2点のp_indexから残りの1点のp_indexを引く
@@ -58,6 +59,16 @@ euclidean_to_theta_phi_of_poler_for_draw(
 	std::vector< float > const &point,
 	std::vector< unsigned int > const &index,
 	std::vector< unsigned int > *poler_point_to_point = nullptr
+);
+
+std::vector< unsigned int >
+make_claster_impl(
+	unsigned int const point_num,
+	unsigned int const max_num,
+	unsigned int const sep_num,
+	std::vector< unsigned int > const &index,
+	std::vector< std::vector< unsigned int > > const &map,
+	std::atomic< bool > &flag
 );
 
 void
@@ -200,9 +211,9 @@ void
 make_adjacency_matrix(
 	std::vector< unsigned int > const &index,
 	unsigned int const max_index,
-	std::vector< std::vector< std::uint8_t > > &am
+	std::vector< std::vector< unsigned int > > &am
 );
-std::vector< std::vector< std::uint8_t > >
+std::vector< std::vector< unsigned int > >
 make_adjacency_matrix(
 	std::vector< unsigned int > const &index,
 	unsigned int const max_index

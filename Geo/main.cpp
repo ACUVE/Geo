@@ -297,7 +297,7 @@ try
 	// for( auto &uv : hires_uv ) uv = uv * 80.0f + 0.5f;
 
 	auto ply_texture = make_high_resolution_object_texture_and_uv_for_ply( TEXTURE_WIDTH_HEIGHT, 0.2f, 0.6f, num, hires_nearest_point_index, hires_uv );
-	kato::writeBMP( "ply.bmp", std::get< 0 >( ply_texture ), std::get< 1 >( ply_texture ), &std::get< 3 >( ply_texture )[ 0 ]);
+	kato::writeBMP( "ply.bmp", std::get< 0 >( ply_texture ), std::get< 1 >( ply_texture ), &std::get< 3 >( ply_texture )[ 0 ] );
 
 	std::cout << "ply出力開始……" << std::endl;
 	write_ply_with_texture( "ply.ply", "ply.bmp", hires_point, hires_index, std::get< 2 >( ply_texture ) );
@@ -308,10 +308,6 @@ try
 
 	// 表示のために重心が原点の位置になるように調整
 	set_cog_to_origin( hires_point );
-	for( auto &v : hires_point )
-	{
-		v *= 1200;
-	}
 
 	// テクスチャデータ生成
 	std::vector< std::vector< std::uint8_t > > texture_data;
