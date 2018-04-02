@@ -37,7 +37,7 @@ constexpr unsigned int TEXTURE_WIDTH_HEIGHT = 64u;
 #else
 constexpr unsigned int TEXTURE_WIDTH_HEIGHT = 512u;
 #endif
-constexpr unsigned int MAX_CLUSTER_NUM = 6;
+constexpr unsigned int MAX_CLUSTER_NUM = 7;
 
 template< typename T >
 static
@@ -189,8 +189,8 @@ try
 	// /*
 	std::string filename = to_local_path( to_data + R"(Lau_150_normalized.ply)" );
 	std::string filename_hires = to_local_path( to_data +  R"(Lau_hires_normalized.ply)" );
-	std::string filename_num = to_local_path( to_data + R"(lau/150.ply.clu6.1476391063.dat)" );
-	// std::string filename_num = to_local_path( to_data + R"(dummy)" );
+	// std::string filename_num = to_local_path( to_data + R"(lau/150.ply.clu6.1476391063.dat)" );
+	std::string filename_num = to_local_path( to_data + R"(dummy)" );
 	//*/
 	/*
 	std::string filename = to_local_path( to_data + R"(bun_zipper_lores.ply)" );

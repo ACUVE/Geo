@@ -3,6 +3,7 @@
 #include <atomic>
 #include <thread>
 #include <iostream>
+#include <algorithm>
 #include "make_point.hpp"
 #include "model_io.hpp"
 
@@ -69,6 +70,13 @@ void make_claster_for_eval( unsigned int const point_num, unsigned int const max
 		}
 	}
 
+	std::vector< std::vector< unsigned int * > > check_timing_list( point_num );
+	for( auto i = 0u; i + argsepnum - 1 < argindex.size(); i += argsepnum )
+	{
+		auto const m = *std::max_element( &argindex[ i ], &argindex[ i ] + argsepnum );
+		check_timing_list[ m ].emplace_back( &argindex[ i ] );
+	}
+
 	std::vector< std::thread > th;
 	std::atomic< unsigned long long int > count_num{ 0u };
 	auto const tn = thread_num();
@@ -85,7 +93,7 @@ void make_claster_for_eval( unsigned int const point_num, unsigned int const max
 				while( !realend_flag )
 				{
 					flags[ i ] = false;
-					auto v = make_claster_impl( point_num, max_num, argsepnum, argindex, map, flags[ i ] );
+					auto v = make_claster_impl( point_num, max_num, argsepnum, check_timing_list, map, flags[ i ] );
 					if( !std::empty(v) )
 					{
 						if( count_num.fetch_add( 1u ) == 0u )

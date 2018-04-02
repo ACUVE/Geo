@@ -66,7 +66,7 @@ make_claster_impl(
 	unsigned int const point_num,
 	unsigned int const max_num,
 	unsigned int const sep_num,
-	std::vector< unsigned int > const &index,
+	std::vector< std::vector< unsigned int * > > const &check_timing_list,
 	std::vector< std::vector< unsigned int > > const &map,
 	std::atomic< bool > &flag
 );

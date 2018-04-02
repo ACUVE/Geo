@@ -12,13 +12,27 @@ void load_ply( std::string const &filename, std::vector< float > &point, std::ve
 {
 	point.clear();
 	index.clear();
-	std::ifstream ifs( filename );
+	std::ifstream ifs( filename, std::ios::binary );
 	if( !ifs.is_open() ) throw std::exception();
 	int vertexline = 0, faceline = 0;
+	enum class format{
+		ASCII, BINARY_LE, UNKNOWN
+	} read_format = format::UNKNOWN;
 	std::string line;
 	while( std::getline( ifs, line ) )
 	{
-		if( line.substr( 0, 15 ) == "element vertex "s )
+		if( line.substr( 0, 7 ) == "format "s )
+		{
+			if( line.substr( 7, 6 ) == "ascii "s )
+			{
+				read_format = format::ASCII;
+			}
+			else if( line.substr( 7, 21 ) == "binary_little_endian "s )
+			{
+				read_format = format::BINARY_LE;
+			}
+		}
+		else if( line.substr( 0, 15 ) == "element vertex "s )
 		{
 			vertexline = std::atoi( line.substr( 15 ).c_str() );
 		}
@@ -31,28 +45,61 @@ void load_ply( std::string const &filename, std::vector< float > &point, std::ve
 			break;
 		}
 	}
-	
+	if( read_format == format::UNKNOWN ) throw std::exception();
 	if( vertexline == 0 || faceline == 0 ) throw std::exception();
 	point.resize( vertexline * 3 );
 	index.resize( faceline * 3 );
-	for( int i = 0; i < vertexline && std::getline( ifs, line ); ++i )
+	switch( read_format )
 	{
-		std::istringstream iss( line );
-		auto const ind = i * 3;
-		iss >> point[ ind + 0 ] >> point[ ind + 1 ] >> point[ ind + 2 ];
-	}
-	for( int i = 0; i < faceline && std::getline( ifs, line ); ++i )
-	{
-		std::istringstream iss( line );
-		auto const ind = i * 3;
-		int dummy;
-		iss >> dummy >> index[ ind + 0 ] >> index[ ind + 1 ] >> index[ ind + 2 ];
-		if( dummy != 3 )
+	case format::ASCII:
 		{
-			point.clear();
-			index.clear();
-			return;
+			for( int i = 0; i < vertexline && std::getline( ifs, line ); ++i )
+			{
+				std::istringstream iss( line );
+				auto const ind = i * 3;
+				iss >> point[ ind + 0 ] >> point[ ind + 1 ] >> point[ ind + 2 ];
+			}
+			for( int i = 0; i < faceline && std::getline( ifs, line ); ++i )
+			{
+				std::istringstream iss( line );
+				auto const ind = i * 3;
+				int dummy;
+				iss >> dummy >> index[ ind + 0 ] >> index[ ind + 1 ] >> index[ ind + 2 ];
+				if( dummy != 3 )
+				{
+					point.clear();
+					index.clear();
+					return;
+				}
+			}
 		}
+		break;
+	case format::BINARY_LE:
+		{
+			for( int i = 0; i < vertexline; ++i )
+			{
+				auto const ind = i * 3;
+				ifs.read( reinterpret_cast< char * >( &point[ ind + 0 ] ), sizeof( float ) );
+				ifs.read( reinterpret_cast< char * >( &point[ ind + 1 ] ), sizeof( float ) );
+				ifs.read( reinterpret_cast< char * >( &point[ ind + 2 ] ), sizeof( float ) );
+			}
+			for( int i = 0; i < faceline; ++i )
+			{
+				auto const ind = i * 3;
+				char dummy;
+				ifs.read( &dummy, sizeof( char ) );
+				if( dummy != 3 )
+				{
+					point.clear();
+					index.clear();
+					return;
+				}
+				ifs.read( reinterpret_cast< char * >( &index[ ind + 0 ] ), sizeof( float ) );
+				ifs.read( reinterpret_cast< char * >( &index[ ind + 1 ] ), sizeof( float ) );
+				ifs.read( reinterpret_cast< char * >( &index[ ind + 2 ] ), sizeof( float ) );
+			}
+		}
+		break;
 	}
 }
 

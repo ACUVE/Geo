@@ -479,7 +479,7 @@ std::tuple< std::vector< float >, std::vector< unsigned int > > euclidean_to_the
 }
 
 // メモリを食う糞ソース
-std::vector< unsigned int > make_claster_impl( unsigned int const point_num, unsigned int const max_num, unsigned int const sep_num, std::vector< unsigned int > const &index, std::vector< std::vector< unsigned int > > const &map, std::atomic< bool > &flag )
+std::vector< unsigned int > make_claster_impl( unsigned int const point_num, unsigned int const max_num, unsigned int const sep_num, std::vector< std::vector< unsigned int * > > const &check_timing_list, std::vector< std::vector< unsigned int > > const &map, std::atomic< bool > &flag )
 {
 	std::random_device rd;
 	std::mt19937_64 gen( rd() );
@@ -492,6 +492,7 @@ std::vector< unsigned int > make_claster_impl( unsigned int const point_num, uns
 	while( !flag )
 	{
 		bool gen_ok = true;
+		set.clear();
 		for( auto i = 0u; i < point_num; ++i )
 		{
 			auto const first_num = dist( gen );
@@ -509,20 +510,20 @@ std::vector< unsigned int > make_claster_impl( unsigned int const point_num, uns
 				if( !same ) break;
 			}
 			if( !(gen_ok = j != max_num) ) break;
+			for( auto const v : check_timing_list[ i ] )
+			{
+				for( auto k = 0u; k < sep_num; ++k ) tmp[ k ] = ret_num[ v[ k ] ];
+				auto it = set.find( tmp );
+				if( it != set.end() )
+				{
+					gen_ok = false;
+					break;
+				}
+				set.insert( tmp );
+			}
+			if( !gen_ok ) break;
 		}
 		if( !gen_ok ) continue;
-		set.clear();
-		for( auto i = 0u; i + sep_num - 1 < index.size(); i += sep_num )
-		{
-			for( auto j = 0u; j < sep_num; ++j ) tmp[ j ] = ret_num[ index[ i + j ] ];
-			auto it = set.find( tmp );
-			if( it != set.end() )
-			{
-				break;
-			}
-			set.insert( tmp );
-		}
-		if( set.size() != index.size() / sep_num ) continue;
 		bool exp = false;
 		if( !flag.compare_exchange_strong( exp, true ) ) break;
 		return std::move( ret_num );
@@ -585,6 +586,13 @@ void make_claster( unsigned int const point_num, unsigned int const max_num, std
 	}
 	// */
 
+	std::vector< std::vector< unsigned int * > > check_timing_list( point_num );
+	for( auto i = 0u; i + argsepnum - 1 < argindex.size(); i += argsepnum )
+	{
+		auto const m = *std::max_element( &argindex[ i ], &argindex[ i ] + argsepnum );
+		check_timing_list[ m ].emplace_back( &argindex[ i ] );
+	}
+
 	std::atomic< bool > flag{ false };
 	std::vector< std::thread > th;
 	auto const tn = thread_num();
@@ -593,7 +601,7 @@ void make_claster( unsigned int const point_num, unsigned int const max_num, std
 		th.emplace_back(
 			[ & ]()
 			{
-				auto v = make_claster_impl( point_num, max_num, argsepnum, argindex, map, flag );
+				auto v = make_claster_impl( point_num, max_num, argsepnum, check_timing_list, map, flag );
 				if( !std::empty(v) ) num = std::move( v );
 			}
 		);
